@@ -6,6 +6,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../widgets/clickable.dart';
 import '../state/conversation_provider.dart';
 import '../state/provider_config_provider.dart';
+import 'model_list_service.dart';
 import 'provider_registry.dart';
 
 /// Dialog to configure API key, model, and options for one AI provider.
@@ -36,6 +37,12 @@ class _ProviderConfigDialogState extends ConsumerState<_ProviderConfigDialog> {
   late int _contextLines;
   bool _obscureKey = true;
 
+  /// Model IDs fetched from a Custom provider's `/models` endpoint.
+  List<String> _availableModels = const [];
+  String? _modelsBaseUrl;
+  bool _isLoadingModels = false;
+  String? _modelListError;
+
   @override
   void initState() {
     super.initState();
@@ -62,7 +69,7 @@ class _ProviderConfigDialogState extends ConsumerState<_ProviderConfigDialog> {
   }
 
   String get _effectiveModel => metaFor(widget.provider).models.isEmpty
-      ? _modelCtrl.text.trim()
+      ? (_availableModels.isEmpty ? _modelCtrl.text.trim() : _selectedModel)
       : _selectedModel;
 
   void _save() {
@@ -82,12 +89,50 @@ class _ProviderConfigDialogState extends ConsumerState<_ProviderConfigDialog> {
   Future<void> _verify() async {
     final key = _apiKeyCtrl.text.trim();
     if (key.isEmpty) return;
+
+    ref.read(providerConfigProvider.notifier).clearVerifyError();
+    final meta = metaFor(widget.provider);
+    final baseUrl = _baseUrlCtrl.text.trim();
+
+    // Custom / OpenAI-compatible endpoints: load `/models` first so the user
+    // gets a dropdown instead of an empty model field.
+    if (meta.models.isEmpty) {
+      final needsFetch = _availableModels.isEmpty || _modelsBaseUrl != baseUrl;
+      if (needsFetch) {
+        setState(() {
+          _isLoadingModels = true;
+          _modelListError = null;
+        });
+        try {
+          final models = await fetchOpenAiModels(
+            baseUrl: baseUrl,
+            apiKey: key,
+          );
+          if (!mounted) return;
+          setState(() {
+            _availableModels = models;
+            _modelsBaseUrl = baseUrl;
+            if (_selectedModel.isEmpty || !models.contains(_selectedModel)) {
+              _selectedModel = models.first;
+              _modelCtrl.text = _selectedModel;
+            }
+          });
+        } catch (e) {
+          if (!mounted) return;
+          setState(() => _modelListError = e.toString());
+        } finally {
+          if (mounted) setState(() => _isLoadingModels = false);
+        }
+        return;
+      }
+    }
+
     final model = _effectiveModel;
     if (model.isEmpty) return;
     await ref.read(providerConfigProvider.notifier).verifyApiKey(
           widget.provider,
           key,
-          baseUrl: _baseUrlCtrl.text.trim(),
+          baseUrl: baseUrl,
           model: model,
         );
   }
@@ -147,7 +192,7 @@ class _ProviderConfigDialogState extends ConsumerState<_ProviderConfigDialog> {
                     ),
                     const SizedBox(width: 8),
                     _VerifyButton(
-                      isVerifying: configState.isVerifying,
+                      isVerifying: configState.isVerifying || _isLoadingModels,
                       onTap: _verify,
                     ),
                   ],
@@ -169,23 +214,66 @@ class _ProviderConfigDialogState extends ConsumerState<_ProviderConfigDialog> {
                 const _Label('Base URL'),
                 TextField(
                   controller: _baseUrlCtrl,
-                  decoration: _inputDecoration(hint: 'http://localhost:11434'),
+                  decoration: _inputDecoration(
+                    hint: widget.provider == AiProvider.custom
+                        ? 'http://host:port/v1'
+                        : 'http://localhost:11434',
+                  ),
                   style: _inputStyle,
                 ),
                 const SizedBox(height: 12),
               ],
 
-              // Model selector — Custom has no registry roster.
+              // Model selector — Custom starts as free text and becomes a
+              // dropdown after `/models` is fetched.
               _Label(l10n.aiConfigModel),
-              if (meta.models.isEmpty)
-                TextField(
-                  controller: _modelCtrl,
-                  decoration: _inputDecoration(
-                    hint: 'gpt-4o-mini / qwen2.5:7b / your-model',
+              if (meta.models.isEmpty) ...[
+                if (_availableModels.isEmpty)
+                  TextField(
+                    controller: _modelCtrl,
+                    decoration: _inputDecoration(
+                      hint: 'gpt-4o-mini / qwen2.5:7b / your-model',
+                    ),
+                    style: _inputStyle,
+                  )
+                else
+                  DropdownButtonFormField<String>(
+                    key: ValueKey(
+                      'dialog-custom-models-${(_modelsBaseUrl ?? '')}-${_availableModels.join('|')}',
+                    ),
+                    initialValue: _availableModels.contains(_selectedModel)
+                        ? _selectedModel
+                        : null,
+                    dropdownColor: context.colors.backgroundSecondary,
+                    style: _inputStyle,
+                    decoration: _inputDecoration(hint: ''),
+                    hint: Text(
+                      l10n.settingsAiSelectModelError,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: context.colors.textSecondary,
+                      ),
+                    ),
+                    items: _availableModels
+                        .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                        .toList(),
+                    onChanged: (v) => setState(() {
+                      _selectedModel = v ?? '';
+                      _modelCtrl.text = _selectedModel;
+                      _modelListError = null;
+                    }),
                   ),
-                  style: _inputStyle,
-                )
-              else
+                if (_modelListError != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    _modelListError!,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: context.colors.danger,
+                    ),
+                  ),
+                ],
+              ] else
                 DropdownButtonFormField<String>(
                   initialValue: _selectedModel,
                   dropdownColor: context.colors.backgroundSecondary,

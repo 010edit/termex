@@ -185,6 +185,11 @@ class ProviderConfigNotifier extends Notifier<ProviderConfigState> {
     state = state.copyWith(activeProvider: provider);
   }
 
+  /// Clear a stale verify error before a new model-list / verify attempt.
+  void clearVerifyError() {
+    state = state.copyWith(clearVerifyError: true);
+  }
+
   void updateConfig(AiProviderConfig config) {
     final updated = {...state.configs, config.provider: config};
 

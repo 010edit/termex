@@ -15,6 +15,7 @@ import '../state/conversation_provider.dart';
 import '../state/local_ai_provider.dart';
 import '../state/provider_config_provider.dart';
 import '../../settings/state/settings_provider.dart';
+import 'model_list_service.dart';
 import 'provider_registry.dart';
 
 class ProviderInlineForm extends ConsumerStatefulWidget {
@@ -40,6 +41,12 @@ class _ProviderInlineFormState extends ConsumerState<ProviderInlineForm> {
   bool _obscureKey = true;
   String? _statusMessage;
   bool _statusOk = false;
+
+  /// Model IDs fetched from a Custom provider's `/models` endpoint.
+  List<String> _availableModels = const [];
+  String? _modelsBaseUrl;
+  bool _isLoadingModels = false;
+  String? _modelListError;
 
   @override
   void initState() {
@@ -68,10 +75,11 @@ class _ProviderInlineFormState extends ConsumerState<ProviderInlineForm> {
     super.dispose();
   }
 
-  /// Custom providers have no registry roster, so the model comes from the
-  /// free-text field instead of the dropdown.
+  /// Custom providers have no registry roster. Before `/models` has been
+  /// loaded the user can type a model manually; once the roster arrives the
+  /// dropdown becomes the source of truth.
   String get _effectiveModel => metaFor(widget.provider).models.isEmpty
-      ? _modelCtrl.text.trim()
+      ? (_availableModels.isEmpty ? _modelCtrl.text.trim() : _model)
       : _model;
 
   void _save() {
@@ -106,6 +114,46 @@ class _ProviderInlineFormState extends ConsumerState<ProviderInlineForm> {
       });
       return;
     }
+
+    final meta = metaFor(widget.provider);
+    final baseUrl = _baseUrlCtrl.text.trim();
+
+    // Custom / OpenAI-compatible endpoints: the first Verify click loads
+    // `/models` and shows the dropdown, so the user can pick a model before
+    // any chat request is sent. A later click verifies the selected model.
+    if (meta.models.isEmpty) {
+      final needsFetch = _availableModels.isEmpty || _modelsBaseUrl != baseUrl;
+      if (needsFetch) {
+        setState(() {
+          _isLoadingModels = true;
+          _modelListError = null;
+          _statusOk = false;
+          _statusMessage = null;
+        });
+        try {
+          final models = await fetchOpenAiModels(
+            baseUrl: baseUrl,
+            apiKey: key,
+          );
+          if (!mounted) return;
+          setState(() {
+            _availableModels = models;
+            _modelsBaseUrl = baseUrl;
+            if (_model.isEmpty || !models.contains(_model)) {
+              _model = models.first;
+              _modelCtrl.text = _model;
+            }
+          });
+        } catch (e) {
+          if (!mounted) return;
+          setState(() => _modelListError = e.toString());
+        } finally {
+          if (mounted) setState(() => _isLoadingModels = false);
+        }
+        return;
+      }
+    }
+
     final model = _effectiveModel;
     if (model.isEmpty) {
       setState(() {
@@ -117,7 +165,7 @@ class _ProviderInlineFormState extends ConsumerState<ProviderInlineForm> {
     final ok = await ref.read(providerConfigProvider.notifier).verifyApiKey(
           widget.provider,
           key,
-          baseUrl: _baseUrlCtrl.text.trim(),
+          baseUrl: baseUrl,
           model: model,
         );
     if (!mounted) return;
@@ -174,8 +222,12 @@ class _ProviderInlineFormState extends ConsumerState<ProviderInlineForm> {
                 ),
                 const SizedBox(width: 8),
                 _SmallBtn(
-                  label: cfgState.isVerifying ? '…' : l10n.settingsAiVerify,
-                  onTap: cfgState.isVerifying ? null : _verify,
+                  label: (_isLoadingModels || cfgState.isVerifying)
+                      ? '…'
+                      : l10n.settingsAiVerify,
+                  onTap: (_isLoadingModels || cfgState.isVerifying)
+                      ? null
+                      : _verify,
                 ),
               ],
             ),
@@ -186,25 +238,70 @@ class _ProviderInlineFormState extends ConsumerState<ProviderInlineForm> {
             const _Label('Base URL'),
             _textField(
               controller: _baseUrlCtrl,
-              hint: 'http://localhost:11434',
+              hint: widget.provider == AiProvider.custom
+                  ? 'http://host:port/v1'
+                  : 'http://localhost:11434',
             ),
             const SizedBox(height: 10),
           ],
 
           // Model selector — local provider gets the embedded picker;
-          // providers without a registry roster (Custom) get free text.
+          // Custom shows a free-text fallback until `/models` has been
+          // fetched, then switches to a dropdown of the returned IDs.
           _Label(l10n.aiConfigModel),
           if (isLocal)
             LocalModelPicker(
               selectedModelId: _model,
               onSelected: (id) => setState(() => _model = id),
             )
-          else if (meta.models.isEmpty)
-            _textField(
-              controller: _modelCtrl,
-              hint: 'gpt-4o-mini / qwen2.5:7b / your-model',
-            )
-          else
+          else if (meta.models.isEmpty) ...[
+            if (_availableModels.isEmpty)
+              _textField(
+                controller: _modelCtrl,
+                hint: 'gpt-4o-mini / qwen2.5:7b / your-model',
+              )
+            else
+              DropdownButtonFormField<String>(
+                key: ValueKey(
+                  'custom-models-${(_modelsBaseUrl ?? '')}-${_availableModels.join('|')}',
+                ),
+                initialValue:
+                    _availableModels.contains(_model) ? _model : null,
+                isDense: true,
+                dropdownColor: context.colors.backgroundSecondary,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: context.colors.textPrimary,
+                ),
+                decoration: _decoration(''),
+                hint: Text(
+                  l10n.settingsAiSelectModelError,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: context.colors.textSecondary,
+                  ),
+                ),
+                items: _availableModels
+                    .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                    .toList(),
+                onChanged: (v) => setState(() {
+                  _model = v ?? '';
+                  _modelCtrl.text = _model;
+                  _statusMessage = null;
+                  _modelListError = null;
+                }),
+              ),
+            if (_modelListError != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                _modelListError!,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: context.colors.danger,
+                ),
+              ),
+            ],
+          ] else
             _modelDropdown(meta.models),
           const SizedBox(height: 10),
 
