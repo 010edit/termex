@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../design/tokens.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../widgets/clickable.dart';
 import '../state/ai_stream_provider.dart';
 import '../state/provider_config_provider.dart';
@@ -73,6 +74,16 @@ class _AiInputState extends ConsumerState<AiInput> {
           if (streamState.rateLimitRetryAfterSeconds != null)
             _RateLimitBanner(
               seconds: streamState.rateLimitRetryAfterSeconds!,
+              onRetry: () => ref
+                  .read(aiStreamProvider.notifier)
+                  .retry(terminalContext: widget.terminalContext),
+            ),
+          // Request failure (auth, endpoint, timeout, ...). Without this
+          // the assistant bubble used to sit on the typing animation with
+          // no explanation of why no reply arrived.
+          if (streamState.errorMessage != null)
+            _ErrorBanner(
+              message: streamState.errorMessage!,
               onRetry: () => ref
                   .read(aiStreamProvider.notifier)
                   .retry(terminalContext: widget.terminalContext),
@@ -238,6 +249,55 @@ class _RateLimitBanner extends StatelessWidget {
             onTap: onRetry,
             child: Text(
               '重试',
+              style: TextStyle(
+                fontSize: 12,
+                color: context.colors.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class _ErrorBanner extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _ErrorBanner({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: context.colors.danger.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: context.colors.danger.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.error_outline, size: 14, color: context.colors.danger),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(fontSize: 12, color: context.colors.danger),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Clickable(
+            onTap: onRetry,
+            child: Text(
+              l10n.commonRetry,
               style: TextStyle(
                 fontSize: 12,
                 color: context.colors.primary,

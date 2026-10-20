@@ -75,6 +75,33 @@ class AiStreamNotifier extends Notifier<AiStreamState> {
   @visibleForTesting
   static String buildContext(String raw, int maxLines) => _buildContext(raw, maxLines);
 
+  /// Map the Dart-side config onto the FRB DTO. Kept as a pure function so a
+  /// regression like "Custom loses its apiKey/baseUrl on send" is testable
+  /// without a running Rust bridge.
+  @visibleForTesting
+  static bridge_models.AiProviderConfig bridgeConfigFor(AiProviderConfig config) =>
+      bridge_models.AiProviderConfig(
+        provider: switch (config.provider) {
+          AiProvider.claude => bridge_models.AiProvider.claude,
+          AiProvider.openAi => bridge_models.AiProvider.openAi,
+          AiProvider.gemini => bridge_models.AiProvider.gemini,
+          AiProvider.ollama => bridge_models.AiProvider.ollama,
+          AiProvider.localLlama => bridge_models.AiProvider.localLlama,
+          AiProvider.deepSeek => bridge_models.AiProvider.deepSeek,
+          AiProvider.grok => bridge_models.AiProvider.grok,
+          AiProvider.mistral => bridge_models.AiProvider.mistral,
+          AiProvider.glm => bridge_models.AiProvider.glm,
+          AiProvider.minimax => bridge_models.AiProvider.minimax,
+          AiProvider.doubao => bridge_models.AiProvider.doubao,
+          AiProvider.bailian => bridge_models.AiProvider.bailian,
+          AiProvider.custom => bridge_models.AiProvider.custom,
+        },
+        model: config.model,
+        apiKey: config.apiKey,
+        baseUrl: config.baseUrl,
+        contextLines: config.contextLines,
+      );
+
   static String _redactSensitive(String text) {
     return text.split('\n')
         .map((line) {
@@ -138,25 +165,11 @@ class AiStreamNotifier extends Notifier<AiStreamState> {
 
     final conversationId = ref.read(conversationProvider).activeConversationId ?? '';
     try {
-      final bridgeConfig = bridge_models.AiProviderConfig(
-        provider: switch (config.provider) {
-          AiProvider.claude => bridge_models.AiProvider.claude,
-          AiProvider.openAi => bridge_models.AiProvider.openAi,
-          AiProvider.gemini => bridge_models.AiProvider.gemini,
-          AiProvider.ollama => bridge_models.AiProvider.ollama,
-          AiProvider.localLlama => bridge_models.AiProvider.localLlama,
-          AiProvider.deepSeek => bridge_models.AiProvider.deepSeek,
-          AiProvider.grok => bridge_models.AiProvider.grok,
-          AiProvider.mistral => bridge_models.AiProvider.mistral,
-          AiProvider.glm => bridge_models.AiProvider.glm,
-          AiProvider.minimax => bridge_models.AiProvider.minimax,
-          AiProvider.doubao => bridge_models.AiProvider.doubao,
-          AiProvider.bailian => bridge_models.AiProvider.bailian,
-          AiProvider.custom => bridge_models.AiProvider.custom,
-        },
-        model: config.model,
-        contextLines: config.contextLines,
-      );
+      // The chat path must carry the same credentials as the form /
+      // Verify path. Omitting these made Custom providers fall back to
+      // the OpenAI default base URL with an empty key, so every message
+      // failed before reaching the user's gateway.
+      final bridgeConfig = bridgeConfigFor(config);
       // v0.79.48: aiSendMessage returns the message_id; the actual
       // response streams via STREAM_CHUNKS keyed by conversation_id.
       // The pre-v0.79.48 code treated message_id as the response text
@@ -177,6 +190,7 @@ class AiStreamNotifier extends Notifier<AiStreamState> {
         config: config,
       );
     } catch (e) {
+      _markFailed(convNotifier, replyId, e.toString());
       state = state.copyWith(
         status: GenerationStatus.error,
         activeMessageId: null,
@@ -191,6 +205,20 @@ class AiStreamNotifier extends Notifier<AiStreamState> {
         errorMessage: e.toString(),
       );
     }
+  }
+
+  /// Stop the typing indicator and surface the failure in the transcript.
+  /// Without this the assistant placeholder stays empty, so the bubble keeps
+  /// rendering the three-dot animation forever even though the request died.
+  void _markFailed(
+    ConversationNotifier convNotifier,
+    String replyId,
+    String error,
+  ) {
+    if (error.isNotEmpty) {
+      convNotifier.appendDelta(replyId, '\n\n$error');
+    }
+    convNotifier.finalizeReply(replyId);
   }
 
   /// v0.79.48: drain chunks every 50 ms. Self-terminates on `done` or
@@ -215,6 +243,7 @@ class AiStreamNotifier extends Notifier<AiStreamState> {
         chunks = await bridge.pollAiChunks(conversationId: conversationId);
       } catch (e) {
         _stopPolling();
+        _markFailed(convNotifier, replyId, e.toString());
         state = state.copyWith(
           status: GenerationStatus.error,
           activeMessageId: null,
@@ -234,11 +263,7 @@ class AiStreamNotifier extends Notifier<AiStreamState> {
       for (final c in chunks) {
         if (c.error != null) {
           _stopPolling();
-          convNotifier.finalizeReply(
-            replyId,
-            tokensIn: c.tokensIn?.toInt() ?? 0,
-            tokensOut: c.tokensOut?.toInt() ?? 0,
-          );
+          _markFailed(convNotifier, replyId, c.error!);
           state = state.copyWith(
             status: GenerationStatus.error,
             activeMessageId: null,

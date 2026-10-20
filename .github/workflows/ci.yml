@@ -95,6 +95,15 @@ jobs:
       - name: Check ARB completeness
         run: bash scripts/check-arb-completeness.sh
 
+      # These cover the AI provider config mapping and /models parser. The
+      # app test suite does not traverse into the shared package, so run the
+      # targeted shared tests explicitly.
+      - name: Run shared AI tests
+        working-directory: packages/termex_shared
+        run: |
+          flutter pub get
+          flutter test test/features/ai/ai_stream_config_test.dart test/features/ai/model_list_service_test.dart
+
   frb-codegen-check:
     # v0.79.43: verifies the committed FRB bindings match what fresh
     # codegen would emit. Replaces the same logic that previously ran on
