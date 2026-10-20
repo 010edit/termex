@@ -36,6 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI/release workflows, README, CLAUDE.md, and architecture docs describe the
   Flutter-only stack. Historical migration/design docs are marked as such.
 - macOS entitlement comments no longer describe the removed Tauri build.
+- CI: iOS/Android bootstrap checks moved out of `ci.yml` into the
+  path-filtered `mobile-ci.yml`. They now run only for mobile/shared/Rust
+  changes, manual dispatches, and a weekly dependency-drift canary, instead
+  of on every push. Desktop `ci.yml` stays fast.
 
 ---
 

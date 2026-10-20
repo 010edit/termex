@@ -263,6 +263,11 @@ Artifacts contain `Termex-<version>-linux-x64.tar.gz` or
 `Termex-<version>-windows-x64.zip`, plus a `.sha256` checksum. Signed
 installers for public releases are produced by `release.yml` on `v*` tags.
 
+iOS and Android compile smoke tests live in
+[`.github/workflows/mobile-ci.yml`](.github/workflows/mobile-ci.yml). They
+run only when mobile, shared Flutter, or Rust core paths change, plus
+manual and weekly canary runs — not on every push.
+
 ### Debug & Launch
 
 ```bash

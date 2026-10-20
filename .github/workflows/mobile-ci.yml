@@ -1,0 +1,162 @@
+name: Mobile Bootstrap
+
+# iOS/Android compile smoke tests.
+#
+# These are NOT release builds: they do not sign, archive, or upload
+# anything. They catch Rust/bridge/platform changes that break the mobile
+# compile before they reach main.
+#
+# This workflow is path-filtered so documentation, CI-only, and desktop-only
+# changes do not spend macOS-runner / Android-NDK time. It still runs:
+#   - manually (workflow_dispatch)
+#   - weekly as a dependency-drift canary
+#   - on pushes / PRs touching mobile, shared Flutter, or Rust core paths
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/ios/**"
+      - "app/android/**"
+      - "app/lib/main.dart"
+      - "app/lib/mobile/**"
+      - "app/lib/cross_tab/**"
+      - "app/pubspec.yaml"
+      - "app/pubspec.lock"
+      - "packages/termex_shared/lib/**"
+      - "packages/termex_shared/pubspec.yaml"
+      - "packages/termex_shared/pubspec.lock"
+      - "crates/termex-core/**"
+      - "crates/termex-flutter-bridge/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "flutter_rust_bridge.yaml"
+      - "scripts/frb-codegen.sh"
+      - ".github/workflows/mobile-ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/ios/**"
+      - "app/android/**"
+      - "app/lib/main.dart"
+      - "app/lib/mobile/**"
+      - "app/lib/cross_tab/**"
+      - "app/pubspec.yaml"
+      - "app/pubspec.lock"
+      - "packages/termex_shared/lib/**"
+      - "packages/termex_shared/pubspec.yaml"
+      - "packages/termex_shared/pubspec.lock"
+      - "crates/termex-core/**"
+      - "crates/termex-flutter-bridge/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "flutter_rust_bridge.yaml"
+      - "scripts/frb-codegen.sh"
+      - ".github/workflows/mobile-ci.yml"
+  workflow_dispatch:
+  schedule:
+    # Weekly dependency-drift canary (Monday 03:17 UTC).
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: "3.35.x"
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+
+jobs:
+  ios-bootstrap-check:
+    # Added in v0.77.0 after the first-time bootstrap exposed
+    # portable-pty/serial-unix/termios link failures on iOS targets.
+    name: iOS Bootstrap Check
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios-sim,aarch64-apple-ios
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/termex-flutter-bridge
+
+      - name: cargo check (iOS simulator)
+        run: cargo check -p termex_flutter_bridge --target aarch64-apple-ios-sim
+
+      - name: cargo check (iOS device)
+        run: cargo check -p termex_flutter_bridge --target aarch64-apple-ios
+
+      - name: Flutter pub get
+        working-directory: app
+        run: flutter pub get
+
+      # FRB drift detection runs in the cheaper Linux ci.yml job; keep this
+      # job focused on whether the iOS app actually builds.
+      - name: Flutter build iOS simulator
+        working-directory: app
+        run: flutter build ios --simulator --no-codesign --debug
+
+  android-bootstrap-check:
+    # Added in v0.79.0 after the first-time bootstrap exposed openssl-sys /
+    # termios / path-resolver issues on Android targets.
+    name: Android Bootstrap Check
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/termex-flutter-bridge
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools platforms;android-34 build-tools;34.0.0 ndk;26.1.10909125"
+
+      - name: cargo check (Android aarch64)
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/26.1.10909125"
+          cargo ndk --target aarch64-linux-android --platform 21 check -p termex_flutter_bridge
+
+      - name: Flutter pub get
+        working-directory: app
+        run: flutter pub get
+
+      - name: Flutter build Android APK (debug)
+        working-directory: app
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/26.1.10909125"
+          flutter build apk --debug

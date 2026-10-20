@@ -1,11 +1,12 @@
 name: CI
 
-# CI covers the Flutter app and the Rust workspace only:
-#   - flutter-analyze
-#   - flutter-test
-#   - rust-test         (cargo test --workspace)
-#   - ios-bootstrap-check
-#   - android-bootstrap-check
+# Fast desktop CI: Flutter analysis/tests, Rust workspace tests, and the
+# FRB codegen drift check.
+#
+# iOS/Android compile smoke tests live in mobile-ci.yml and run only when
+# mobile-relevant paths change (or manually / weekly). Keeping them out of
+# this workflow means documentation, CI, and desktop-only changes do not
+# pay for a macOS runner and a full Android NDK build.
 
 on:
   push:
@@ -94,47 +95,6 @@ jobs:
       - name: Check ARB completeness
         run: bash scripts/check-arb-completeness.sh
 
-  ios-bootstrap-check:
-    # Verifies the iOS platform stays buildable. Added in v0.77.0 after
-    # the first-time bootstrap exposed portable-pty/serial-unix/termios
-    # link failures on iOS targets. Keep this job green to catch any
-    # future iOS-incompatible Rust dependency before it lands on main.
-    name: iOS Bootstrap Check
-    runs-on: macos-15
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.35.x'
-          channel: stable
-          cache: true
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-ios-sim,aarch64-apple-ios
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: crates/termex-flutter-bridge
-
-      - name: cargo check (iOS simulator)
-        run: cargo check -p termex_flutter_bridge --target aarch64-apple-ios-sim
-
-      - name: cargo check (iOS device)
-        run: cargo check -p termex_flutter_bridge --target aarch64-apple-ios
-
-      - name: Flutter pub get
-        working-directory: app
-        run: flutter pub get
-
-      # v0.79.37 + v0.79.43: FRB drift detection now runs on the
-      # standalone `frb-codegen-check` Linux job (~10x cheaper than
-      # macos-15 minutes). Keep this job iOS-build-focused.
-      - name: Flutter build iOS simulator
-        working-directory: app
-        run: flutter build ios --simulator --no-codesign --debug
-
   frb-codegen-check:
     # v0.79.43: verifies the committed FRB bindings match what fresh
     # codegen would emit. Replaces the same logic that previously ran on
@@ -198,56 +158,3 @@ jobs:
 
       - name: Verify FRB bindings are up-to-date
         run: ./scripts/frb-codegen.sh --check
-
-  android-bootstrap-check:
-    # Verifies the Android platform stays buildable. Added in v0.79.0
-    # after the first-time bootstrap exposed openssl-sys / termios /
-    # path-resolver issues on Android targets. Keep this job green to
-    # catch any future Android-incompatible Rust dependency or missing
-    # path_provider seeding before it lands on main.
-    name: Android Bootstrap Check
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.35.x'
-          channel: stable
-          cache: true
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: crates/termex-flutter-bridge
-
-      - name: Install cargo-ndk
-        run: cargo install cargo-ndk --locked
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          packages: "platform-tools platforms;android-34 build-tools;34.0.0 ndk;26.1.10909125"
-
-      - name: cargo check (Android aarch64)
-        run: |
-          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/26.1.10909125"
-          cargo ndk --target aarch64-linux-android --platform 21 check -p termex_flutter_bridge
-
-      - name: Flutter pub get
-        working-directory: app
-        run: flutter pub get
-
-      - name: Flutter build Android APK (debug)
-        working-directory: app
-        run: |
-          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/26.1.10909125"
-          flutter build apk --debug
