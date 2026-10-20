@@ -34,6 +34,7 @@ class ProviderInlineForm extends ConsumerStatefulWidget {
 class _ProviderInlineFormState extends ConsumerState<ProviderInlineForm> {
   late TextEditingController _apiKeyCtrl;
   late TextEditingController _baseUrlCtrl;
+  late TextEditingController _modelCtrl;
   late String _model;
   late int _contextLines;
   bool _obscureKey = true;
@@ -55,6 +56,7 @@ class _ProviderInlineFormState extends ConsumerState<ProviderInlineForm> {
     final fallback =
         meta.models.isNotEmpty ? meta.models.first : '';
     _model = (cfg?.model.isNotEmpty ?? false) ? cfg!.model : fallback;
+    _modelCtrl = TextEditingController(text: _model);
     _contextLines = cfg?.contextLines ?? 100;
   }
 
@@ -62,12 +64,20 @@ class _ProviderInlineFormState extends ConsumerState<ProviderInlineForm> {
   void dispose() {
     _apiKeyCtrl.dispose();
     _baseUrlCtrl.dispose();
+    _modelCtrl.dispose();
     super.dispose();
   }
 
+  /// Custom providers have no registry roster, so the model comes from the
+  /// free-text field instead of the dropdown.
+  String get _effectiveModel => metaFor(widget.provider).models.isEmpty
+      ? _modelCtrl.text.trim()
+      : _model;
+
   void _save() {
     final l10n = AppLocalizations.of(context);
-    if (_model.isEmpty) {
+    final model = _effectiveModel;
+    if (model.isEmpty) {
       setState(() {
         _statusOk = false;
         _statusMessage = l10n.settingsAiSelectModelError;
@@ -76,7 +86,7 @@ class _ProviderInlineFormState extends ConsumerState<ProviderInlineForm> {
     }
     final config = AiProviderConfig(
       provider: widget.provider,
-      model: _model,
+      model: model,
       apiKey: _apiKeyCtrl.text.trim().isEmpty ? null : _apiKeyCtrl.text.trim(),
       baseUrl:
           _baseUrlCtrl.text.trim().isEmpty ? null : _baseUrlCtrl.text.trim(),
@@ -96,9 +106,20 @@ class _ProviderInlineFormState extends ConsumerState<ProviderInlineForm> {
       });
       return;
     }
-    final ok = await ref
-        .read(providerConfigProvider.notifier)
-        .verifyApiKey(widget.provider, key);
+    final model = _effectiveModel;
+    if (model.isEmpty) {
+      setState(() {
+        _statusOk = false;
+        _statusMessage = l10n.settingsAiSelectModelError;
+      });
+      return;
+    }
+    final ok = await ref.read(providerConfigProvider.notifier).verifyApiKey(
+          widget.provider,
+          key,
+          baseUrl: _baseUrlCtrl.text.trim(),
+          model: model,
+        );
     if (!mounted) return;
     final err = ref.read(providerConfigProvider).verifyError;
     setState(() {
@@ -170,12 +191,18 @@ class _ProviderInlineFormState extends ConsumerState<ProviderInlineForm> {
             const SizedBox(height: 10),
           ],
 
-          // Model selector — local provider gets the embedded picker.
+          // Model selector — local provider gets the embedded picker;
+          // providers without a registry roster (Custom) get free text.
           _Label(l10n.aiConfigModel),
           if (isLocal)
             LocalModelPicker(
               selectedModelId: _model,
               onSelected: (id) => setState(() => _model = id),
+            )
+          else if (meta.models.isEmpty)
+            _textField(
+              controller: _modelCtrl,
+              hint: 'gpt-4o-mini / qwen2.5:7b / your-model',
             )
           else
             _modelDropdown(meta.models),

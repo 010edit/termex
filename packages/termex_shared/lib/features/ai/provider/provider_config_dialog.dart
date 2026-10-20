@@ -31,6 +31,7 @@ class _ProviderConfigDialog extends ConsumerStatefulWidget {
 class _ProviderConfigDialogState extends ConsumerState<_ProviderConfigDialog> {
   late final TextEditingController _apiKeyCtrl;
   late final TextEditingController _baseUrlCtrl;
+  late final TextEditingController _modelCtrl;
   late String _selectedModel;
   late int _contextLines;
   bool _obscureKey = true;
@@ -48,6 +49,7 @@ class _ProviderConfigDialogState extends ConsumerState<_ProviderConfigDialog> {
       text: config.baseUrl ?? (widget.provider == AiProvider.ollama ? 'http://localhost:11434' : ''),
     );
     _selectedModel = config.model;
+    _modelCtrl = TextEditingController(text: _selectedModel);
     _contextLines = config.contextLines;
   }
 
@@ -55,13 +57,20 @@ class _ProviderConfigDialogState extends ConsumerState<_ProviderConfigDialog> {
   void dispose() {
     _apiKeyCtrl.dispose();
     _baseUrlCtrl.dispose();
+    _modelCtrl.dispose();
     super.dispose();
   }
 
+  String get _effectiveModel => metaFor(widget.provider).models.isEmpty
+      ? _modelCtrl.text.trim()
+      : _selectedModel;
+
   void _save() {
+    final model = _effectiveModel;
+    if (model.isEmpty) return;
     final config = AiProviderConfig(
       provider: widget.provider,
-      model: _selectedModel,
+      model: model,
       apiKey: _apiKeyCtrl.text.trim().isEmpty ? null : _apiKeyCtrl.text.trim(),
       baseUrl: _baseUrlCtrl.text.trim().isEmpty ? null : _baseUrlCtrl.text.trim(),
       contextLines: _contextLines,
@@ -73,9 +82,14 @@ class _ProviderConfigDialogState extends ConsumerState<_ProviderConfigDialog> {
   Future<void> _verify() async {
     final key = _apiKeyCtrl.text.trim();
     if (key.isEmpty) return;
-    await ref
-        .read(providerConfigProvider.notifier)
-        .verifyApiKey(widget.provider, key);
+    final model = _effectiveModel;
+    if (model.isEmpty) return;
+    await ref.read(providerConfigProvider.notifier).verifyApiKey(
+          widget.provider,
+          key,
+          baseUrl: _baseUrlCtrl.text.trim(),
+          model: model,
+        );
   }
 
   @override
@@ -161,18 +175,27 @@ class _ProviderConfigDialogState extends ConsumerState<_ProviderConfigDialog> {
                 const SizedBox(height: 12),
               ],
 
-              // Model selector
+              // Model selector — Custom has no registry roster.
               _Label(l10n.aiConfigModel),
-              DropdownButtonFormField<String>(
-                initialValue: _selectedModel,
-                dropdownColor: context.colors.backgroundSecondary,
-                style: _inputStyle,
-                decoration: _inputDecoration(hint: ''),
-                items: meta.models
-                    .map((m) => DropdownMenuItem(value: m, child: Text(m)))
-                    .toList(),
-                onChanged: (v) => setState(() => _selectedModel = v!),
-              ),
+              if (meta.models.isEmpty)
+                TextField(
+                  controller: _modelCtrl,
+                  decoration: _inputDecoration(
+                    hint: 'gpt-4o-mini / qwen2.5:7b / your-model',
+                  ),
+                  style: _inputStyle,
+                )
+              else
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedModel,
+                  dropdownColor: context.colors.backgroundSecondary,
+                  style: _inputStyle,
+                  decoration: _inputDecoration(hint: ''),
+                  items: meta.models
+                      .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                      .toList(),
+                  onChanged: (v) => setState(() => _selectedModel = v!),
+                ),
               const SizedBox(height: 12),
 
               // Context lines

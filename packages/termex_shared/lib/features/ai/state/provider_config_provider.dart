@@ -287,15 +287,36 @@ class ProviderConfigNotifier extends Notifier<ProviderConfigState> {
     } catch (_) {}
   }
 
-  Future<bool> verifyApiKey(AiProvider provider, String apiKey) async {
+  /// Verify the credentials currently typed into the provider form.
+  ///
+  /// This deliberately routes through [bridge.aiExplainCommand] instead of
+  /// [bridge.aiVerifyApiKey]: the latter only takes provider + key and falls
+  /// back to the vendor's hard-coded base URL/model. For Custom (and any
+  /// self-hosted OpenAI-compatible gateway) that means the key is sent to
+  /// api.openai.com, which is exactly the wrong endpoint. `aiExplainCommand`
+  /// builds the same [ProviderRequest] as a real chat turn, so the form's
+  /// baseUrl, model and key are all honored. It does not persist anything.
+  Future<bool> verifyApiKey(
+    AiProvider provider,
+    String apiKey, {
+    String? baseUrl,
+    String? model,
+  }) async {
     state = state.copyWith(isVerifying: true, clearVerifyError: true);
     try {
-      final ok = await bridge.aiVerifyApiKey(
+      final effectiveModel = (model ?? kDefaultModel[provider] ?? '').trim();
+      final config = bridge_models.AiProviderConfig(
         provider: _toBridgeProvider(provider),
+        model: effectiveModel,
         apiKey: apiKey,
+        baseUrl: (baseUrl == null || baseUrl.trim().isEmpty)
+            ? null
+            : baseUrl.trim(),
+        contextLines: 50,
       );
+      await bridge.aiExplainCommand(command: 'true', config: config);
       state = state.copyWith(isVerifying: false);
-      return ok;
+      return true;
     } catch (e) {
       state = state.copyWith(isVerifying: false, verifyError: e.toString());
       return false;
