@@ -11,7 +11,7 @@ void main() {
         provider: AiProvider.custom,
         model: 'deepseek/deepseek-v4.1-flash-fast',
         apiKey: 'cpa-test-key',
-        baseUrl: 'http://10.200.200.19:8609/v1',
+        baseUrl: 'http://gateway.local/v1',
       );
 
       final bridgeConfig = AiStreamNotifier.bridgeConfigFor(config);
@@ -19,7 +19,7 @@ void main() {
       expect(bridgeConfig.provider, bridge_models.AiProvider.custom);
       expect(bridgeConfig.model, 'deepseek/deepseek-v4.1-flash-fast');
       expect(bridgeConfig.apiKey, 'cpa-test-key');
-      expect(bridgeConfig.baseUrl, 'http://10.200.200.19:8609/v1');
+      expect(bridgeConfig.baseUrl, 'http://gateway.local/v1');
       expect(bridgeConfig.contextLines, 100);
     });
 
