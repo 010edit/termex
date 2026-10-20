@@ -178,11 +178,23 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cargo/bin/flutter_rust_bridge_codegen
-          key: frb-codegen-${{ runner.os }}-v2.12.0
+          # Keep this key in sync with the exact version below. A cached
+          # binary under an older key can otherwise silently be 2.13.x and
+          # rewrite every generated file header (the v0.80 drift incident).
+          key: frb-codegen-${{ runner.os }}-v2.12.0-exact
 
       - name: Install flutter_rust_bridge_codegen
         if: steps.frb-codegen-cache.outputs.cache-hit != 'true'
-        run: cargo install flutter_rust_bridge_codegen --version '^2.12' --locked
+        # Exact pin: the Dart runtime is pinned to flutter_rust_bridge 2.12.0
+        # (app/pubspec.yaml). `^2.12` now resolves to 2.13.x, which changes
+        # the generated-file header and fails the drift check.
+        run: cargo install flutter_rust_bridge_codegen --version '=2.12.0' --locked
+
+      - name: Verify codegen version
+        # Guard against a stale cache entry that does not match the pin.
+        run: |
+          flutter_rust_bridge_codegen --version
+          flutter_rust_bridge_codegen --version | grep -q '2\.12\.0'
 
       - name: Verify FRB bindings are up-to-date
         run: ./scripts/frb-codegen.sh --check

@@ -9,7 +9,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_rust_bridge: ^2.0.0
+  # Keep in lockstep with the codegen pin and app/pubspec.yaml. A newer
+  # runtime makes the generated-file header drift from the checked-in
+  # bindings and fails the CI drift check.
+  flutter_rust_bridge: 2.12.0
   freezed_annotation: ^2.4.0
   meta: ^1.12.0
 

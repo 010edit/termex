@@ -8,7 +8,7 @@
 # Requirements:
 #   - Rust toolchain (stable)
 #   - Flutter SDK (>= 3.24)
-#   - flutter_rust_bridge_codegen (cargo install --version '^2.0')
+#   - flutter_rust_bridge_codegen (cargo install --version '=2.12.0')
 #
 # Usage:
 #   ./scripts/frb-codegen.sh          # regenerate bindings
@@ -35,7 +35,7 @@ fi
 # ── Tool checks ──
 if ! command -v flutter_rust_bridge_codegen >/dev/null 2>&1; then
   echo "❌ flutter_rust_bridge_codegen not installed."
-  echo "   Run: cargo install flutter_rust_bridge_codegen --version '^2.0'"
+  echo "   Run: cargo install flutter_rust_bridge_codegen --version '=2.12.0'"
   exit 1
 fi
 

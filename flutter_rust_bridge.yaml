@@ -1,7 +1,7 @@
 # flutter_rust_bridge codegen configuration (v2 syntax)
 #
 # Usage:
-#   cargo install flutter_rust_bridge_codegen --version '^2.0'
+#   cargo install flutter_rust_bridge_codegen --version '=2.12.0'
 #   flutter_rust_bridge_codegen generate
 #
 # The generated Dart file is checked into git; CI verifies idempotency.

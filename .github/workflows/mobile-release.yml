@@ -64,12 +64,19 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cargo/bin/flutter_rust_bridge_codegen
-          key: frb-codegen-${{ runner.os }}-v2.12.0
+          key: frb-codegen-${{ runner.os }}-v2.12.0-exact
 
       - name: Install flutter_rust_bridge_codegen
         if: steps.frb-codegen-cache.outputs.cache-hit != 'true'
-        run: cargo install flutter_rust_bridge_codegen --version '^2.12' --locked
+        # Exact pin to match app/pubspec.yaml; `^2.12` now resolves to 2.13.x
+        # and rewrites the generated headers.
+        run: cargo install flutter_rust_bridge_codegen --version '=2.12.0' --locked
         working-directory: .
+
+      - name: Verify codegen version
+        run: |
+          flutter_rust_bridge_codegen --version
+          flutter_rust_bridge_codegen --version | grep -q '2\.12\.0'
 
       - name: Verify FRB bindings
         # The `../` here was relative to the job's default working-directory

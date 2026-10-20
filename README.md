@@ -212,7 +212,7 @@ termex/
 
 - [Rust](https://rustup.rs/) (stable)
 - [Flutter SDK](https://docs.flutter.dev/get-started/install) (3.27+)
-- `cargo install flutter_rust_bridge_codegen --version '^2.0'`
+- `cargo install flutter_rust_bridge_codegen --version '=2.12.0'`
 - Node.js 18+ only if you want to run the version-bump helper; there are no npm dependencies to install
 
 ### Setup
