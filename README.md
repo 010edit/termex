@@ -1,6 +1,6 @@
 <p align="center">  
   <h1 align="center">Termex</h1>  
-  <p align="center"><strong>An open-source, AI-native SSH client built with Rust.</strong></p>  
+  <p align="center"><strong>An open-source, AI-native SSH client built with Flutter and Rust.</strong></p>
   <p align="center">以 SSH 协议为底座，打造 AI 时代永不断线的云端智能工作平台。</p>  
   <p align="center">SSH is the wire. What flows through it is your entire AI-powered workflow.</p>  
   <p align="center">Connect from any device. Punch through any network.</p>  
@@ -31,7 +31,7 @@
 |  | Termius | Tabby | WindTerm | Termex |
 | --- | --- | --- | --- | --- |
 | Beautiful UI | Yes | Yes | No | **Yes** |
-| Native Performance | Yes | No (Electron) | Yes | **Yes (Tauri/Rust)** |
+| Native Performance | Yes | No (Electron) | Yes | **Yes (Flutter/Rust)** |
 | AI Integrated | No | No | No | **Yes** |
 | Free & Open Source | No | Yes | Yes | **Yes (MIT)** |
 | Encrypted Config | No | Partial | Partial | **Yes (OS Keychain + AES-256-GCM)** |
@@ -46,7 +46,7 @@ Download the latest release for your platform from [GitHub Releases](https://git
 | --- | --- | --- |
 | macOS | Apple Silicon (M1/M2/M3) | `.dmg` |
 | macOS | Intel | `.dmg` |
-| Windows | x64 | `.msi` / `.exe` |
+| Windows | x64 | `.exe` / `.zip` |
 | Linux | x86_64 | `.deb` / `.rpm` / `.AppImage` |
 | Linux | aarch64 | `.deb` / `.rpm` |
 
@@ -61,7 +61,7 @@ flutter pub get
 flutter build macos --release     # or: flutter build windows / linux
 ```
 
-> ⓘ The legacy `pnpm tauri build` recipe is disabled as of v0.78.0. For an emergency Tauri rebuild see [`scripts/legacy/build-tauri.sh`](scripts/legacy/build-tauri.sh).
+> ⓘ The legacy Tauri/Vue stack was removed in v0.80.0. All desktop and mobile builds now use Flutter + the shared Rust core.
 
 #### Optional: install git hooks
 
@@ -76,7 +76,7 @@ bridge surface (`crates/termex-flutter-bridge/src/api/**` or the bridge
 
 ## Features
 
-- **SSH Terminal** -- WebGL-accelerated xterm.js, multi-tab, 60fps, password & key auth
+- **SSH Terminal** -- Flutter-rendered terminal (Dart xterm emulator), multi-tab, 60fps, password & key auth
 - **Server Management** -- Tree view with groups, search, drag & drop, encrypted credential storage
 - **SFTP File Browser** -- Dual-pane with context menu, drag & drop, copy/cut/paste, chmod, file info
 - **SSH Tunnel** -- ProxyJump / bastion host support (multi-level), port forwarding (local/remote/dynamic)
@@ -94,41 +94,23 @@ bridge surface (`crates/termex-flutter-bridge/src/api/**` or the bridge
 
 ## Tech Stack
 
-> 🪦 **v0.78.0 cutover — Tauri/Vue build stopped**. As of v0.78.0:
-> - CI no longer builds the Tauri/Vue desktop. Release artefacts ship Flutter binaries only (.dmg / .msix / .deb / .rpm / .AppImage).
-> - `src-tauri/` and `src/` directories REMAIN in the repo as a forensic / rollback snapshot — they are excluded from the Cargo workspace and the npm scripts (`pnpm tauri dev` / `pnpm dev`) print a deprecation notice.
-> - To produce a Tauri binary by hand for emergency rebuild, see [`scripts/legacy/build-tauri.sh`](scripts/legacy/build-tauri.sh).
-> - **v0.80.0** will physically delete the legacy directories.
->
-> Existing Tauri-installed users continue to work; data + credentials are fully shared (SQLCipher DB + OS keychain) so switching to a Flutter binary requires no manual migration. See [v0.77.0 final parity](docs/iterations/v0.77.0-pc-final-parity.md) and [v0.78.0 cutover plan](docs/iterations/v0.78.0-pc-cutover.md).
->
-> **Repository layout** (as of v0.78.0):
-> - Flutter desktop + mobile: `app/` + `packages/termex_shared/`
-> - Rust core (shared): `crates/termex-core/` + `crates/termex-flutter-bridge/` + `crates/termexd/`
-> - Legacy (no longer built): `src-tauri/` + `src/`
-
-### Legacy stack — retiring (v0.34.x — Tauri/Vue)
+> The legacy Tauri/Vue desktop stack was removed in v0.80.0. There is no
+> WebView, Electron or Node.js runtime in the shipped application.
 
 ```text
-Tauri v2 + Rust          Backend, SSH, encryption, storage
-Vue 3 + TypeScript       Frontend framework
-Element Plus             UI components
-Tailwind CSS             Styling
-xterm.js (WebGL)         Terminal rendering
-SQLCipher                Encrypted local database
-russh                    Pure-Rust SSH2 protocol
-ring + Argon2id          AES-256-GCM encryption & key derivation
-```
-
-### Migration stack (WIP — target v0.49+ — Flutter/Rust)
-
-```text
-Flutter 3.24+ (Dart)     Self-drawn UI, no Material/Cupertino
-flutter_rust_bridge v2   FRB bindings (Dart <-> Rust)
+Flutter 3.27+ (Dart)     Self-drawn UI (Termex design system, WidgetsApp)
 Riverpod                 State management
-Custom VT100 emulator    Terminal rendering (Dart, no xterm.js)
-Rust core (shared)       Same russh/ring/SQLCipher, extracted to crates/termex-core/
+package:xterm            Dart terminal emulator + custom pane/split view
+flutter_rust_bridge v2   FFI bindings between Dart and Rust
+Rust core (shared)       SSH (russh), SFTP, crypto (ring), SQLCipher, AI
+termexd                  Optional remote daemon for long-running AI tasks
 ```
+
+### Repository layout
+
+- Flutter desktop + mobile: `app/` + `packages/termex_shared/`
+- Rust core: `crates/termex-core/` + `crates/termex-flutter-bridge/` + `crates/termexd/`
+- Legacy Tauri/Vue sources: removed from `main`; recoverable from tags `<= v0.79.x` in Git history
 
 ## Keyboard Shortcuts
 
@@ -192,34 +174,34 @@ Termex uses the operating system's native credential manager to protect all sens
 ```text
 termex/
 ├── .github/workflows/         # CI + cross-platform release
-├── docs/                      # Requirements, design, prototype
-│   ├── iterations/            #   Version iteration plans (v0.1.0 ~ v0.51.0)
-│   └── migration/             #   Flutter migration roadmap
-├── scripts/                   # Version bump + FRB codegen utilities
-│   └── frb-codegen.sh         #   Regenerate Flutter bindings from Rust API
+├── docs/                      # Requirements, design, migration history
+├── scripts/                   # FRB codegen, version bump, signing
 ├── flutter_rust_bridge.yaml   # FRB codegen config
 │
-├── src-tauri/src/             # ── Production (Tauri/Vue v0.34.x) ──
-│   ├── commands/              #   Tauri IPC handlers
-│   ├── ssh/  sftp/  crypto/  storage/  ai/  team/  recording/
-│   └── state.rs
-├── src/                       #   Vue 3 frontend
-│   ├── components/  composables/  stores/  i18n/  types/  utils/
+├── crates/
+│   ├── termex-core/           # Shared Rust business logic
+│   │   └── src/               #   ssh/sftp/crypto/storage/ai/team/monitor/...
+│   ├── termex-flutter-bridge/ # flutter_rust_bridge v2 layer
+│   │   ├── src/api/           #   Rust API surface
+│   │   └── lib/src/           #   Generated + hand-written Dart bindings
+│   ├── termexd/               # Remote daemon (WebSocket over SSH tunnel)
+│   └── termex-core-private/   # Optional closed-source stub (not built in OSS)
 │
-├── crates/                    # ── Migration (Flutter/Rust WIP) ──
-│   ├── termex-core/           #   Shared Rust business logic
-│   │   └── src/ (14 modules: ssh, sftp, crypto, storage, ai, team, ...)
-│   └── termex-flutter-bridge/ #   flutter_rust_bridge v2 layer
-│       ├── src/api/           #     29 API modules (≈7,200 LOC)
-│       └── lib/src/           #     Dart bindings (stub until codegen runs)
-└── app/                       #   Flutter app
-    ├── lib/
-    │   ├── features/          #     server_list, ai, sftp, team, cloud, ...
-    │   ├── terminal/          #     Custom VT100 emulator
-    │   ├── widgets/           #     Self-drawn design system
-    │   ├── design/  system/   #     Theme tokens, sentinel flags, updater
-    │   └── main.dart
-    ├── test/  integration_test/
+├── packages/termex_shared/    # Flutter UI shared by desktop + mobile
+│   ├── lib/design/            #   Tokens / theme / typography
+│   ├── lib/widgets/           #   Self-drawn Termex* components
+│   ├── lib/features/          #   server_list, ai, sftp, team, settings, ...
+│   ├── lib/terminal/          #   Terminal view + pane/split controller
+│   ├── lib/system/            #   Updater, keychain, clipboard, platform glue
+│   └── lib/l10n/              #   ARB-generated localizations
+│
+└── app/                       # Flutter application entrypoint
+    ├── lib/main.dart          #   WidgetsApp + theme scope
+    ├── lib/desktop/           #   Desktop shell, menus, tray, sidebar
+    ├── lib/mobile/            #   Mobile shell, notifications, task views
+    ├── macos/ windows/ linux/ #   Desktop platform shells
+    ├── ios/ android/          #   Mobile platform shells
+    ├── test/ integration_test/
     ├── pubspec.yaml
     └── distribute_options.yaml
 ```
@@ -228,18 +210,12 @@ termex/
 
 ### Prerequisites
 
-**Production stack (Tauri/Vue)**:
 - [Rust](https://rustup.rs/) (stable)
-- [Node.js](https://nodejs.org/) (22+)
-- [pnpm](https://pnpm.io/) (10+)
-- Platform-specific [Tauri v2 dependencies](https://v2.tauri.app/start/prerequisites/)
-
-**Migration stack (Flutter)**:
-- Rust (stable)
-- [Flutter SDK](https://docs.flutter.dev/get-started/install) (3.24+)
+- [Flutter SDK](https://docs.flutter.dev/get-started/install) (3.27+)
 - `cargo install flutter_rust_bridge_codegen --version '^2.0'`
+- Node.js 18+ only if you want to run the version-bump helper; there are no npm dependencies to install
 
-### Setup — Production stack (Flutter, v0.78.0+)
+### Setup
 
 ```bash
 git clone https://github.com/user/termex.git
@@ -254,19 +230,7 @@ flutter run -d "iPhone 17 Pro"
 flutter run -d "iPad Pro 13-inch (M5)"
 ```
 
-### Setup — Legacy Tauri/Vue stack (forensic only, retiring v0.80)
-
-```bash
-git clone https://github.com/user/termex.git
-cd termex
-# `pnpm tauri *` scripts now print a deprecation notice + exit. To
-# actually rebuild the legacy Tauri binary for rollback, use:
-scripts/legacy/build-tauri.sh release
-```
-
 ### Commands
-
-> v0.78.0 PC cutover: the `pnpm tauri *` commands are disabled. Use the Flutter equivalents below. For a forensic Tauri rebuild see [`scripts/legacy/build-tauri.sh`](scripts/legacy/build-tauri.sh).
 
 | Command | Description |
 | --- | --- |
@@ -278,8 +242,26 @@ scripts/legacy/build-tauri.sh release
 | `cd app && flutter analyze` | Static analysis |
 | `cd app && flutter run -d macos` | Dev run on macOS (or `-d windows` / `-d linux`) |
 | `cd app && flutter build macos --release` | Build Flutter production binary |
-| `pnpm version:bump patch` | Bump version (patch/minor/major/x.y.z) |
-| `scripts/legacy/build-tauri.sh release` | (Legacy) Manual Tauri build for rollback |
+| `node scripts/bump-version.mjs patch` | Bump version (patch/minor/major/x.y.z) |
+
+### Desktop CI builds (Linux + Windows)
+
+[`.github/workflows/build-desktop.yml`](.github/workflows/build-desktop.yml)
+builds unsigned Linux x64 and Windows x64 bundles on pushes / PRs that touch
+`app/`, `packages/`, or `crates/`, and can be run manually:
+
+```bash
+gh workflow run build-desktop.yml --ref main
+gh run watch
+
+# Download an artifact from the latest run
+gh run download -n termex-linux-x64
+gh run download -n termex-windows-x64
+```
+
+Artifacts contain `Termex-<version>-linux-x64.tar.gz` or
+`Termex-<version>-windows-x64.zip`, plus a `.sha256` checksum. Signed
+installers for public releases are produced by `release.yml` on `v*` tags.
 
 ### Debug & Launch
 
@@ -304,12 +286,11 @@ cd app && flutter build macos --release   # or windows / linux
 
 ```bash
 # Semantic version bump — syncs package.json + termex-core/Cargo.toml +
-# termex-flutter-bridge/Cargo.toml + app/pubspec.yaml. (v0.78.0: src-tauri
-# version stamps are no longer synced — see scripts/bump-version.mjs.)
-pnpm version:bump patch         # 0.1.0 → 0.1.1
-pnpm version:bump minor         # 0.1.0 → 0.2.0
-pnpm version:bump major         # 0.1.0 → 1.0.0
-pnpm version:bump 0.2.0         # explicit version
+# termex-flutter-bridge/Cargo.toml + app/pubspec.yaml + app_version.dart.
+node scripts/bump-version.mjs patch    # 0.80.0 → 0.80.1
+node scripts/bump-version.mjs minor    # 0.80.0 → 0.81.0
+node scripts/bump-version.mjs major    # 0.80.0 → 1.0.0
+node scripts/bump-version.mjs 0.81.0   # explicit version
 
 # Commit and tag
 git add -A && git commit -m "chore: release v0.2.0"

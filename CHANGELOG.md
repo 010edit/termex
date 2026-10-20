@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased] — Legacy Tauri/Vue removal
+
+### Removed
+
+- **`src/` (Vue 3 + Element Plus) and `src-tauri/` (Tauri v2)** — the
+  retired desktop stack is physically gone. Recover it from tags
+  `<= v0.79.x` if a forensic build is ever needed.
+- Root Vue/Vite build chain: `index.html`, `vite.config.ts`, `tsconfig*.json`,
+  `tailwind.config.ts`, `postcss.config.js`, `pnpm-lock.yaml`,
+  `pnpm-workspace.yaml`.
+- Tauri-only scripts: `scripts/legacy/build-tauri.sh`,
+  `scripts/parity-launch.sh`, `scripts/generate-icons.mjs`,
+  `scripts/setup-dev-environment.sh`,
+  `scripts/download-llama-server-binaries.sh`.
+- One-off Vue→Flutter i18n migration helpers that read the deleted
+  `src/i18n/locales`: `scripts/i18n-diff.ts`, `scripts/i18n-merge.mjs`.
+- Unused Flutter `tauri_retirement_banner.dart`.
+- npm dependency tree — `package.json` now contains only the
+  `version:bump` helper and no runtime/dev dependencies.
+
+### Changed
+
+- `Cargo.toml` workspace no longer references `src-tauri`; it contains only
+  `termex-core`, `termex-flutter-bridge`, and `termexd`.
+- `scripts/bump-version.mjs` no longer looks for the deleted
+  `crates/termex-tauri` manifest.
+- CI/release workflows, README, CLAUDE.md, and architecture docs describe the
+  Flutter-only stack. Historical migration/design docs are marked as such.
+- macOS entitlement comments no longer describe the removed Tauri build.
+
+---
+
 ## [0.80.0] — 2026-08-18 — Session recording, sidebar search, context menus
 
 First feature release on the Flutter desktop stack after the v0.79.0 cutover.

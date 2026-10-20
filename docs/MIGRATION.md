@@ -1,6 +1,10 @@
 # Termex v0.39 → v0.49 Migration Guide
 
-> 本指南面向 **Vue+Tauri 版 Termex 用户**。如果你是全新用户，直接下载 v0.49.0 即可。
+> **历史文档**：Vue/Tauri 老栈已在 v0.80.0 从 `main` 物理删除。
+> 当前生产栈只有 Flutter；老源码仍可从 Git 标签 `<= v0.79.x` 取得。
+> 本指南保留用于理解迁移过程与旧版用户升级路径。
+
+> 本指南面向 **Vue+Tauri 版 Termex 用户**。如果你是全新用户，直接下载最新 Flutter 版本即可。
 
 ---
 
@@ -12,7 +16,7 @@ Termex 在 v0.49.0 完成了 UI 技术栈的整体切换：
 |---|---|---|
 | UI 框架 | Vue 3 + Element Plus | Flutter 3.24 (自绘 widgets) |
 | 运行时 | Tauri 2 WebView | Flutter native |
-| 终端渲染 | xterm.js (WebGL) | 自写 VT100 / CustomPainter |
+| 终端渲染 | xterm.js (WebGL) | Dart `package:xterm` + Flutter 渲染 |
 | IPC | Tauri `invoke` | flutter_rust_bridge v2 |
 | Rust backend | unchanged | unchanged |
 | SQLCipher 数据库 | unchanged | unchanged |
@@ -117,7 +121,7 @@ v0.49.0 第一次启动时会检测到现有 `termex.db`，直接读取。**没�
 
 > 适用于：仍在使用 **Vue+Tauri** 版本（v0.34.x 及更早，包括从 v0.39 升到 v0.49+ 但仍走老栈的混合包）的用户。
 >
-> 完整退役计划见 [Tauri 退役计划 v0.70.0](iterations/v0.70.0-pc-tauri-retirement.md)。
+> 完整退役计划已随老栈删除；本文件保留为历史记录。
 
 ### 退役时间表（4 阶段，提前到 ~12 个月完成）
 
@@ -126,8 +130,8 @@ v0.49.0 第一次启动时会检测到现有 `termex.db`，直接读取。**没�
 | v0.69 ✅ | **Deprecation 通知** | 老 Tauri 包仍可用；启动时弹一次 banner 建议切换 |
 | v0.70 ✅ | **Default switch** | 新安装默认 Flutter；AppCast 触发一次 critical update 让老用户切换 |
 | v0.77 ✅ | **Flutter 功能对齐验收** | 11 个 AI Provider、Monitor、Audit、Team、托盘、徽章等全部对齐；672 widget 测试 + 132 Rust 测试全过 |
-| ~~v0.75~~ → **v0.78** ✅ | **CI 移除**（**提前** Phase 3） | Tauri 不再随官方 release 发布；老栈源码仍在仓库；`pnpm tauri *` 命令打印 deprecation 提示 exit 1；需要时手动跑 `scripts/legacy/build-tauri.sh` |
-| v0.80 | **源码删除** | `src-tauri/` + `src/` (Vue) 物理删除；老栈成 git 历史 |
+| ~~v0.75~~ → **v0.78** ✅ | **CI 移除**（**提前** Phase 3） | Tauri 不再随官方 release 发布；老栈源码冻结 |
+| v0.80 ✅ | **源码删除** | `src-tauri/` + `src/` (Vue) 已物理删除；老栈只存在于 Git 历史 |
 
 ### 切换步骤（极简）
 
@@ -165,11 +169,13 @@ v0.49.0 第一次启动时会检测到现有 `termex.db`，直接读取。**没�
 
 老栈在 v0.78 前都可下载预编译包：访问 https://termex.app/legacy 选择 v0.77.x 系列。**stable-legacy 通道保留至 2027-04**（与 v0.39→v0.49 同节奏）。
 
-> v0.78.0 起 CI 不再产出 Tauri 二进制。仍在仓库里的 [`scripts/legacy/build-tauri.sh`](../scripts/legacy/build-tauri.sh) 可在本地手工 build 出 Tauri 包用于回滚 / 取证：
+> v0.78.0 起 CI 不再产出 Tauri 二进制；v0.80.0 起源码也已删除。
+> 如需重建旧版，只能检出历史标签后按当时的工具链构建：
 > ```bash
-> scripts/legacy/build-tauri.sh release   # 生成 src-tauri/target/release/bundle/dmg/Termex_*.dmg
+> git checkout v0.77.0
+> # 按该标签下的 README / Tauri 工具链说明构建
 > ```
-> v0.80.0 起 `src-tauri/` 目录将被物理删除，到时只能 `git checkout v0.77.x` 才能跑该脚本。
+> 预编译的 v0.77.x 安装包仍保留在 GitHub Releases archive。
 
 ---
 
@@ -187,14 +193,13 @@ v0.49.0 第一次启动时会检测到现有 `termex.db`，直接读取。**没�
 
 **SQLCipher 数据库 + OS keychain 凭据完全共享**，下载 v0.78.0+ Flutter 包覆盖安装即可，不需要 export/import。
 
-**Tauri 包仍然可下载**至 v0.77.x（GitHub Releases archive）。v0.80 物理删除 `src-tauri/` 时这些老包仍归档保留，只是无法重新 build。
+**Tauri 包仍然可下载**至 v0.77.x（GitHub Releases archive）。v0.80.0 已物理删除 `src-tauri/`，这些老包仍归档保留，只是无法再从 `main` 重新构建。
 
 **开发者影响**（不用 Termex 但贡献代码）：
-- `cargo build --workspace` 不再编 src-tauri（不在 workspace 里了）
-- `pnpm tauri build` / `pnpm dev` 等改为 stub 打印警告并 exit 1
-- CI workflows 移除 Tauri 相关 job
-- `scripts/sign-macos.sh` 路径切到 Flutter macOS build 输出
-- 详见 [v0.78.0-pc-cutover.md](iterations/v0.78.0-pc-cutover.md)
+- `cargo build --workspace` 只包含 termex-core / termex-flutter-bridge / termexd
+- `pnpm tauri build` / `pnpm dev` 等命令已随老栈删除
+- CI workflows 只构建 Flutter + Rust workspace
+- `scripts/sign-macos.sh` 服务 Flutter macOS build 输出
 
 ### 反馈
 

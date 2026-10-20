@@ -1,6 +1,6 @@
 //! Port-listening helpers extracted from the legacy `health_check.rs` so
 //! they can be reused without an `AppState` dependency. The full
-//! AppState-aware health/restart loop remains in `src-tauri`.
+//! AppState-aware health/restart loop belonged to the removed Tauri shell.
 
 use std::net::TcpStream;
 use std::time::Duration;

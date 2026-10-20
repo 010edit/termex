@@ -42,8 +42,8 @@ void main() {
 
     expect(find.text('Termex'), findsOneWidget);
     // Assert against the shared constant instead of a hardcoded string so
-    // `pnpm version:bump` (which now syncs app_version.dart) can't break
-    // this test again — the v0.79.0 bump caught it asserting '0.49.0'.
+    // `node scripts/bump-version.mjs` (which syncs app_version.dart) can't
+    // break this test again — the v0.79.0 bump caught it asserting '0.49.0'.
     expect(find.textContaining(kAppVersion), findsWidgets);
   });
 

@@ -6,12 +6,15 @@
 
 Termex is an open-source, AI-native SSH client. Built on SSH as the foundation, it creates an always-on cloud AI workspace for the AI era. It targets developers and ops engineers who need a beautiful, fast, intelligent, and free SSH client.
 
-**Repository state (as of v0.68.0)**: this repo hosts **two co-existing implementations** during a long-running migration — the legacy Tauri/Vue app (retirement in progress) and the production Flutter rewrite. Functional parity completed at v0.68.0 (59+ parity items + i18n structure). See [docs/iterations/v0.51.0-pc-remediation.md](docs/iterations/v0.51.0-pc-remediation.md) for migration status and [docs/iterations/v0.70.0-pc-tauri-retirement.md](docs/iterations/v0.70.0-pc-tauri-retirement.md) for the 4-phase Tauri retirement plan (v0.69 → v0.80, 24 months).
+**Repository state (v0.80.0+)**: the legacy Tauri/Vue desktop stack has been **removed**. The repo now contains a single production UI — Flutter — plus the shared Rust core.
 
-**⚠️ For new feature development**: write **Flutter only** (under `packages/termex_shared/lib/` or `app/lib/`). Do not add new code to `src-tauri/` or `src/` (Vue) — those are in retirement mode and accept critical security PRs only.
+- Flutter desktop + mobile: `app/` + `packages/termex_shared/`
+- Rust core: `crates/termex-core/` + `crates/termex-flutter-bridge/` + `crates/termexd/`
+- Optional commercial logic: `crates/termex-core-private/` (empty stub in OSS builds)
+- New feature code goes in `packages/termex_shared/lib/` or `app/lib/`. Do not reintroduce Tauri, Vue, Electron, or any WebView-based stack.
 
 **🛣 Two product routes** (since v0.71):
-- **Desktop = Route A · Terminal-first**: full xterm + chain/proxy/forward editing + AI sidebar; deep long-form ops
+- **Desktop = Route A · Terminal-first**: full terminal + chain/proxy/forward editing + AI sidebar; deep long-form ops
 - **Mobile = Route B · AI Operator Console**: monitor & react to long-running AI tasks; structured summaries primary; terminal is "advanced details" only; voice-first dispatch with safety guardrails
 
 Mobile **retains** Route A baseline (terminal view, etc.) but never makes terminal the primary experience. See [`docs/mobile-strategy.md`](docs/mobile-strategy.md). New mobile features must map to one of the four strategic pillars (Persistent Channel / Structured Outcome / Trustworthy Execution / Network Path Parity) or be explicitly justified.
@@ -20,109 +23,89 @@ Mobile **retains** Route A baseline (terminal view, etc.) but never makes termin
 
 ## Tech Stack
 
-### A. Tauri/Vue stack (production, current v0.34.x)
-
-- **Runtime**: Tauri v2
-- **Backend**: Rust (russh, ring, SQLCipher, tokio) — in `src-tauri/`
-- **Frontend**: Vue 3 + Vite + TypeScript
-- **UI**: Element Plus + Tailwind CSS
-- **Terminal**: xterm.js (WebGL renderer)
-- **State**: Pinia
-- **Database**: SQLite + SQLCipher (encrypted)
-
-### B. Flutter stack (migration target, WIP — target v0.49+)
-
-- **Runtime**: Flutter 3.24+ (Dart)
-- **UI**: Self-drawn widgets (no Material / Cupertino) under `app/lib/widgets/`
-- **Terminal**: Custom VT100/xterm emulator under `app/lib/terminal/`
-- **Bridge**: flutter_rust_bridge v2 (`crates/termex-flutter-bridge/`)
-- **Backend**: Rust core extracted to `crates/termex-core/` — same russh/ring/SQLCipher
+- **Runtime**: Flutter 3.27+ (Dart)
+- **UI**: self-drawn `Termex*` widgets under `packages/termex_shared/lib/widgets/`; design tokens under `packages/termex_shared/lib/design/`
+- **App shell**: `WidgetsApp` + `TermexThemeScope` in `app/lib/main.dart` (not `MaterialApp`)
+- **Terminal**: Dart `package:xterm` emulator + custom pane/split controller under `packages/termex_shared/lib/terminal/`
 - **State**: Riverpod
-- **Database**: unchanged (same SQLCipher file; cross-stack compatible)
+- **Bridge**: flutter_rust_bridge v2 (`crates/termex-flutter-bridge/`)
+- **Business core**: Rust in `crates/termex-core/` — russh, ring, SQLCipher, tokio
+- **Remote daemon**: `crates/termexd/` (WebSocket over an SSH tunnel)
+- **Database**: SQLite + SQLCipher (encrypted)
 
 ## Architecture
 
 ```
-# Tauri/Vue stack (production)
-src-tauri/src/           # Rust backend (Tauri commands + integrations)
-├── commands/            # Tauri IPC command handlers
-├── ssh/  sftp/  crypto/  storage/  ai/  team/  ...
-└── state.rs             # Global AppState
+app/                          # Flutter entrypoint + platform shells
+├── lib/main.dart             # WidgetsApp + theme scope
+├── lib/desktop/              # Desktop shell, menus, tray, sidebar
+├── lib/mobile/               # Mobile shell, notifications, task views
+├── lib/cross_tab/            # Cross-tab search / broadcast
+├── macos/ windows/ linux/    # Desktop platform shells
+├── ios/ android/             # Mobile platform shells
+├── test/ integration_test/
+└── distribute_options.yaml   # flutter_distributor release config
 
-src/                     # Vue 3 frontend
-├── components/  composables/  stores/  types/  utils/
+packages/termex_shared/       # Shared Flutter UI + feature modules
+├── lib/design/               # Tokens / theme / typography
+├── lib/widgets/              # Self-drawn Termex* design system
+├── lib/features/             # server_list, ai, sftp, team, settings, ...
+├── lib/terminal/             # Terminal view + pane/split controller
+├── lib/system/               # Updater, keychain, clipboard, platform glue
+├── lib/l10n/                 # ARB-generated localizations
+└── pubspec.yaml
 
-# Flutter stack (migration WIP)
 crates/
-├── termex-core/         # Shared Rust business logic (extracted from src-tauri)
-└── termex-flutter-bridge/ # flutter_rust_bridge v2 bindings
-    ├── src/api/         # 29 API modules (server, ssh, sftp, ai, team, ...)
-    └── lib/src/         # Hand-written Dart stubs (replaced by FRB codegen)
+├── termex-core/              # Shared Rust business logic
+├── termex-flutter-bridge/    # flutter_rust_bridge v2 API surface
+├── termexd/                  # Remote daemon (task state + WebSocket)
+└── termex-core-private/      # Optional closed-source stub; excluded from OSS builds
 
-app/                     # Flutter app
-├── lib/
-│   ├── features/        # Feature modules (server_list, ai, sftp, team, cloud, ...)
-│   ├── terminal/        # Custom terminal emulator
-│   ├── widgets/         # Design system (self-drawn)
-│   ├── design/          # Theme tokens
-│   ├── system/          # sentinel_flag.dart, auto_updater, crash_reporter
-│   ├── services/        # Service layer
-│   └── main.dart
-├── test/  integration_test/
-├── pubspec.yaml
-└── distribute_options.yaml  # flutter_distributor config (used at v0.49+ release)
-
-flutter_rust_bridge.yaml # FRB codegen config (root)
-scripts/frb-codegen.sh   # Regenerate Dart bindings from Rust API
+flutter_rust_bridge.yaml      # FRB codegen config
+scripts/frb-codegen.sh        # Regenerate Dart bindings from Rust API
 ```
 
-**Key rule**: any change to `crates/termex-core/src/api/*.rs` requires running `./scripts/frb-codegen.sh` to keep Dart bindings in sync. CI enforces idempotency.
+**Key rule**: any change to the FRB API surface under `crates/termex-flutter-bridge/src/api/*.rs` requires running `./scripts/frb-codegen.sh` to keep Dart bindings in sync. CI enforces idempotency.
 
 ## Code Conventions
 
-### Rust (src-tauri/)
+### Rust (`crates/termex-core/`)
 
-- All Tauri commands are in `src/commands/`, one file per module
-- Business logic lives in dedicated modules (`ssh/`, `crypto/`, `ai/`), NOT in command handlers
-- Command handlers are thin wrappers: validate input → call module → return result
-- Use `thiserror` for error types, map to `String` at the command boundary
+- Business logic lives in dedicated modules (`ssh/`, `crypto/`, `ai/`, `storage/`, ...), **not** in the bridge layer
+- The bridge (`crates/termex-flutter-bridge/src/api/`) is a thin adapter: validate input → call core → return result
+- Use `thiserror` for error types, map to `String` at the bridge boundary
 - All async operations use `tokio`
 - Never log passwords, API keys, or any sensitive data
 - Use `uuid::Uuid::new_v4()` for all IDs
 - Database timestamps use ISO 8601 format (`chrono::Utc::now().to_rfc3339()`)
 - Encrypted fields (passwords, API keys) use the `_enc` suffix and store as `BLOB`
 - All public functions must have doc comments
+- No `unwrap()` in production code — use `?` or proper error handling
 
-### TypeScript / Vue (src/)
+### Dart / Flutter (`app/`, `packages/termex_shared/`)
 
-- Use `<script setup lang="ts">` for all Vue components
-- Use Composition API exclusively, no Options API
-- Component naming: PascalCase files, multi-word names (e.g., `ServerItem.vue`, not `Item.vue`)
-- All Tauri IPC calls go through `src/utils/tauri.ts` wrapper functions
-- Type definitions in `src/types/`, one file per domain
-- Pinia stores in `src/stores/`, one file per store
-- Composables in `src/composables/`, prefixed with `use`
-- CSS: use Tailwind utility classes first, Element Plus components for complex widgets, custom CSS only when necessary
-- No inline styles except for dynamic values (e.g., `style="width: ${w}px"`)
-- Event naming: kebab-case for template events, camelCase for emits
+- Self-drawn widgets first: use `packages/termex_shared/lib/widgets/` and `design/tokens.dart` before raw Material widgets
+- Material is a low-level primitive only (`showDialog`, `SnackBar`, text editing overlays). Do not add `AppBar` / `Drawer` / `MaterialApp`-based navigation
+- Feature code lives in `packages/termex_shared/lib/features/<feature>/`, split into `state/` + `widgets/` when a file grows
+- Use Riverpod for state; no global mutable singletons for feature state
+- All user-facing text goes through `AppLocalizations` (ARB); no hardcoded strings
+- Use `dart format`; keep files under the 800-line limit
 
 ### General
 
 - Commit messages: `<type>(<scope>): <description>` (e.g., `feat(ssh): add RSA key authentication`)
 - Types: feat, fix, refactor, style, docs, test, chore
-- Scopes: ssh, sftp, ui, ai, crypto, storage, config
-- No `any` type in TypeScript — define proper interfaces
-- No `unwrap()` in Rust production code — use `?` operator or proper error handling
-- No hardcoded strings for user-facing text — prepare for i18n
-- **单文件行数上限 800 行** — 超过时必须按职责拆分为多个文件。Rust 用 `mod` 子模块拆分，Vue 用子组件 + composable 拆分，TypeScript 按领域拆分到独立文件。宁可多文件也不要单文件臃肿
+- Scopes: ssh, sftp, ui, ai, crypto, storage, config, bridge, mobile
+- No `any` / unchecked dynamic types — define proper Dart types or Rust DTOs
+- **单文件行数上限 800 行** — 超过时必须按职责拆分为多个文件。Rust 用 `mod` 子模块拆分，Dart 按 feature/widget/state 拆分。宁可多文件也不要单文件臃肿
 - **实现与测试必须同步** — 每个功能模块在实现的同时必须编写对应的单元测试/集成测试。不允许先实现后补测试，也不允许提交无测试覆盖的功能代码
-- **测试代码独立存放** — 所有测试用例必须放在独立的 `tests/` 目录下，按模块分类组织，禁止在业务代码文件内编写 `#[cfg(test)] mod tests`。Rust 测试放在 `src-tauri/tests/`，前端测试使用 Vitest 放在 `src/__tests__/`
+- **测试代码独立存放** — 所有测试用例必须放在独立的 `tests/` 目录下，按模块分类组织，禁止在业务代码文件内编写 `#[cfg(test)] mod tests`。Rust 测试放在 `crates/*/tests/`，Flutter 测试放在 `app/test/` 或 `packages/termex_shared/test/`
 
 ## Security Rules (CRITICAL)
 
 - **NEVER** log sensitive data (passwords, keys, tokens) at any log level
 - **NEVER** send credentials to AI providers — only send command text and server metadata (OS, hostname)
-- **NEVER** include secrets in error messages returned to frontend
+- **NEVER** include secrets in error messages returned to the frontend
 
 ### Credential Storage Strategy (v0.10.0+)
 
@@ -147,21 +130,23 @@ scripts/frb-codegen.sh   # Regenerate Dart bindings from Rust API
 - 禁止创建额外的 keychain entry（无 per-server、per-provider、verification token 条目）
 - `verify_accessible()` 仅检查 `is_available()` 返回值，不执行额外的 keychain 读取
 
-## IPC Conventions
+## Bridge Conventions
 
-- Frontend → Backend: `invoke("module_action", { params })` (e.g., `invoke("ssh_connect", { server_id })`)
-- Backend → Frontend events: `emit("module://event/id", data)` (e.g., `emit("ssh://data/{session_id}", bytes)`)
-- All IPC commands return `Result<T, String>`
-- SSH terminal data uses high-frequency events, not request-response
+- Rust API surface: `crates/termex-flutter-bridge/src/api/<module>.rs`
+- Dart entrypoint: `crates/termex-flutter-bridge/lib/api.dart` (generated)
+- All bridge functions return `Result<T, String>`-shaped values; errors are converted at the boundary
+- Streaming terminal/SFTP data uses the bridge's event/poll streams — never one FFI call per byte
+- After any FRB API change: `./scripts/frb-codegen.sh` (and commit the regenerated files)
 
 ## Testing
 
-- Rust: `cargo test` for unit tests, `cargo test --test` for integration tests
-- Frontend: Vitest for unit/component tests
+- Rust: `cargo test --workspace` for unit + integration tests
+- Flutter: `cd app && flutter test`; shared package tests live in `packages/termex_shared/test/`
+- Integration: `cd app && flutter test integration_test/`
 - Crypto module must have comprehensive test coverage
 - SSH tests use mock server where possible
 - **每次迭代/修改必须确保所有测试用例通过** — 修改结构体字段、新增 migration、改变函数签名等操作后，必须同步更新对应的测试断言值（如 migration 数量、结构体初始化字段）。CI 中测试不通过会阻止发布
-- CI 使用 `cargo test --release` 运行测试，确保与生产构建行为一致
+- CI 使用 `cargo test --workspace --release` 运行测试，确保与生产构建行为一致
 
 ## Performance Guidelines
 
@@ -169,7 +154,7 @@ scripts/frb-codegen.sh   # Regenerate Dart bindings from Rust API
 - Terminal input latency: < 16ms (60fps)
 - Memory per session: < 100MB
 - Support 20+ simultaneous tabs
-- Use WebGL renderer for xterm.js by default
+- Terminal rendering uses Flutter's raster pipeline; avoid rebuilding whole panes on every byte
 - Lazy-load settings panels and SFTP panel
 - Debounce search input (300ms)
 - SSH data events: batch small writes, don't emit per-byte
@@ -177,82 +162,68 @@ scripts/frb-codegen.sh   # Regenerate Dart bindings from Rust API
 ## File Naming
 
 - Rust: snake_case for files and modules (`port_forward.rs`)
-- Vue: PascalCase for components (`ServerItem.vue`)
-- TypeScript: camelCase for non-component files (`serverStore.ts`)
-- CSS: kebab-case for class names when custom (`terminal-cursor`)
+- Dart: snake_case for files (`server_list_page.dart`), PascalCase for classes/widgets
 - Database: snake_case for tables and columns (`auth_type`, `created_at`)
+- Tests: `test_<module>.rs` for Rust, `<feature>_test.dart` for Flutter
 
 ## Key Design Decisions
 
-1. **SQLCipher over plain SQLite**: All user data is encrypted at rest
-2. **russh over ssh2-rs**: Pure Rust, no C dependency, better async support
-3. **Pinia over Vuex**: Lighter, better TypeScript support, Composition API native
-4. **ring over RustCrypto**: More battle-tested, used by major projects
-5. **Argon2id over PBKDF2**: Stronger against GPU/ASIC attacks for KDF
-6. **Event-driven SSH data**: Events over invoke for real-time terminal data streaming
-7. **Multi-provider AI**: Abstract trait allows plugging any LLM backend
-8. **User brings own key**: No proxy server, no Termex backend, pure local app
+1. **Flutter over WebView/Tauri**: one UI codebase for desktop + mobile, no embedded browser, native rendering
+2. **SQLCipher over plain SQLite**: all user data is encrypted at rest
+3. **russh over ssh2-rs**: pure Rust, no C dependency, better async support
+4. **Riverpod over global state**: testable, composable state for desktop + mobile
+5. **ring over RustCrypto**: more battle-tested, used by major projects
+6. **Argon2id over PBKDF2**: stronger against GPU/ASIC attacks for KDF
+7. **ffi over IPC**: flutter_rust_bridge keeps the Rust core shared by every platform
+8. **Multi-provider AI**: abstract trait allows plugging any LLM backend
+9. **User brings own key**: no proxy server, no Termex backend, pure local app
 
 ## Common Commands
 
-### Tauri/Vue stack (production)
-
 ```bash
-pnpm tauri dev                    # Full-stack dev (frontend + Rust, hot reload)
-pnpm dev                          # Frontend only (Vite)
-pnpm run build                    # Type-check + build frontend
-pnpm tauri build                  # Build production binary
-pnpm tauri build --debug          # Build debug binary (faster compile)
-cd src-tauri && cargo test        # Run Rust tests
-cd src-tauri && cargo clippy      # Lint Rust code
-RUST_LOG=debug pnpm tauri dev     # Dev with verbose Rust logging
-```
+# Rust workspace (termex-core + termex-flutter-bridge + termexd)
+cargo test --workspace
+cargo test --workspace --release
+cargo clippy --workspace
 
-### Flutter stack (migration target)
+# FRB codegen
+./scripts/frb-codegen.sh             # regenerate Dart bindings
+./scripts/frb-codegen.sh --check     # CI drift check
 
-```bash
-# Workspace tests (termex-core + termex-flutter-bridge + termex-tauri)
-cargo test --workspace                      # run all 400+ Rust tests
+# Flutter
+cd app && flutter pub get
+cd app && flutter analyze
+cd app && flutter test
+cd app && flutter test integration_test/
+cd app && flutter run -d macos       # or -d windows / -d linux
+cd app && flutter build macos --release
 
-# FRB codegen (regenerate Dart bindings after any change to crates/termex-flutter-bridge/src/api/)
-./scripts/frb-codegen.sh                    # local regenerate
-./scripts/frb-codegen.sh --check            # CI: verify bindings up-to-date
-
-# Flutter (requires flutter SDK 3.24+ on PATH)
-cd app && flutter pub get                   # resolve dependencies
-cd app && flutter test                      # unit + widget tests
-cd app && flutter test integration_test/    # integration tests
-cd app && flutter run -d macos              # dev run on macOS
-cd app && flutter build macos --release     # production macOS build
-
-# Sentinel / anti-RE builds
-cargo check -p termex-core --features sentinel   # verify sentinel compiles
-flutter build macos --release --dart-define=SENTINEL=true   # with sentinel checks
+# Version bump (Node built-in; no npm dependencies)
+node scripts/bump-version.mjs patch  # 0.80.0 → 0.80.1
+node scripts/bump-version.mjs minor  # 0.80.0 → 0.81.0
 ```
 
 ### Version Bump
 
-`pnpm version:bump <patch|minor|major|x.y.z>` syncs version across files. During dual-stack period (v0.34–v0.49) it must sync:
+`node scripts/bump-version.mjs <patch|minor|major|x.y.z>` syncs:
 - `package.json`
-- `src-tauri/Cargo.toml`
-- `src-tauri/tauri.conf.json`
 - `crates/termex-core/Cargo.toml`
 - `crates/termex-flutter-bridge/Cargo.toml`
 - `app/pubspec.yaml`
+- `packages/termex_shared/lib/app_version.dart`
 
-```bash
-pnpm version:bump patch           # 0.1.0 → 0.1.1
-pnpm version:bump minor           # 0.1.0 → 0.2.0
-pnpm version:bump 0.2.0           # explicit version
-### specify version number
-pnpm version:bump 0.2.0         # 直接设为 0.2.0
-```
+`termexd` is versioned independently (its release workflow is tag-driven:
+`termexd-v*`), so it is intentionally not part of this bump.
 
 ## Documentation
 
-- `docs/requirements.md` — Product requirements and feature specs
-- `docs/detailed-design.md` — System architecture, database schema, API design
-- `docs/prototype.html` — Interactive UI prototype (open in browser)
+- `README.md` — product overview, setup, commands
+- `docs/requirements.md` — product requirements (historical; Vue/Tauri-era sections may be outdated)
+- `docs/detailed-design.md` — architecture / DB schema (historical; Vue/Tauri-era examples)
+- `docs/architecture.md` — current Flutter + Rust architecture
+- `docs/mobile-strategy.md` — Route B product strategy
+- `docs/tech-debt.md` — known debt
+- `docs/MIGRATION.md` — historical Tauri → Flutter migration guide
 
 ### Iteration document naming (docs/iterations/)
 
@@ -266,30 +237,16 @@ Where `{scope}` is exactly one of:
 
 | Scope     | When to use                                                                 |
 |-----------|------------------------------------------------------------------------------|
-| `pc`      | Desktop client work — Tauri/Vue UI, Flutter desktop UI, desktop packaging   |
+| `pc`      | Desktop client work — Flutter desktop UI, packaging                         |
 | `mobile`  | iOS / Android Flutter app — UI, navigation, mobile-only features            |
 | `web`     | Future browser/web client                                                   |
 | `core`    | `crates/termex-core` business logic — SSH/SFTP/crypto/keychain/AI/team etc. |
 | `bridge`  | `crates/termex-flutter-bridge` — FRB wiring, codegen, Rust↔Dart contract    |
 | `homebrew`| Homebrew formula / tap maintenance                                          |
 
-Examples:
-- `v0.62.1-pc-ui-parity.md`
-- `v0.54.0-mobile-design-system.md`
-- `v0.39.0-bridge-architecture.md`
-- `v0.68.0-core-refactor-and-resilience.md`
-
-Rationale: scanning the directory listing should make each iteration's
-ownership obvious at a glance, and cross-cutting roadmap docs can grep
-`docs/iterations/v*-pc-*.md` to enumerate platform-specific work.
-
-For multi-scope iterations, pick the **primary** owner. If the doc is
-truly cross-cutting infrastructure (e.g. migration remediation that
-touches every layer), pick the scope of the team that drives the work.
-
 ## What NOT to Do
 
-- Do not add Electron or any web-based runtime alternative
+- Do not reintroduce Tauri, Vue, Electron, or any WebView/web-based runtime
 - Do not create a backend server / SaaS component — this is a pure local app
 - Do not add telemetry or analytics without explicit user consent
 - Do not bypass SQLCipher encryption for "convenience"

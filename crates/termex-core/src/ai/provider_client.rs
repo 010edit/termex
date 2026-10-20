@@ -1,10 +1,10 @@
 //! HTTP client for calling upstream AI providers (Claude, OpenAI-compatible,
 //! Ollama, local llama-server, Gemini).
 //!
-//! Mirrors the legacy Tauri `call_ai_provider` from
-//! `src-tauri/src/commands/ai.rs` but depends on nothing Tauri-specific so it
-//! can be reused from the Flutter bridge. Returns either the completed text
-//! (synchronous) or streams deltas through a callback (asynchronous SSE).
+//! Historically mirrored the legacy Tauri `call_ai_provider`, but now depends
+//! on nothing platform-specific so it can be reused from the Flutter bridge.
+//! Returns either the completed text (synchronous) or streams deltas through a
+//! callback (asynchronous SSE).
 
 use serde::{Deserialize, Serialize};
 use tokio::sync::oneshot;

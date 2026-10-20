@@ -1,5 +1,8 @@
 # Termex - 需求评审文档
 
+> **历史文档**：本文档成稿于 Vue/Tauri 时代，部分技术选型（Vue、Tauri、xterm.js）已不再适用。
+> 当前生产栈为 Flutter + Rust core，见 [architecture.md](architecture.md) 与 [../CLAUDE.md](../CLAUDE.md)。
+
 > Terminal + Experience | 以 SSH 协议为底座，打造 AI 时代永不断线的云端智能工作平台
 
 ---

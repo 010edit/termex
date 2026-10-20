@@ -204,13 +204,10 @@ Future<String> _httpAppcastFetcher(String url) async {
   }
 }
 
-// v0.77.0 PC final parity: when launched with
-// `--dart-define=TERMEX_AUDIT_MODE=true` the desktop app redirects its
-// SQLCipher DB / recordings / fonts / models / bin / config under
-// `~/.termex-flutter-audit/`, so the new Flutter build can run *side by
-// side* with the legacy Tauri/Vue build without sharing or corrupting
-// the production DB. The legacy build always uses `dirs::data_dir()`,
-// so this isolation is one-sided and safe.
+// When launched with `--dart-define=TERMEX_AUDIT_MODE=true` the desktop
+// app redirects its SQLCipher DB / recordings / fonts / models / bin /
+// config under `~/.termex-flutter-audit/`, so a test build can run
+// without sharing or corrupting the production DB.
 const bool _kAuditMode =
     bool.fromEnvironment('TERMEX_AUDIT_MODE', defaultValue: false);
 

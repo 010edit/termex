@@ -1,6 +1,6 @@
 /// Application version constants.
 ///
-/// Keep in sync with `app/pubspec.yaml` via `pnpm version:bump`.
+/// Keep in sync with `app/pubspec.yaml` via `node scripts/bump-version.mjs`.
 library;
 
 const String kAppVersion = '0.80.0';

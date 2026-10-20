@@ -1,10 +1,7 @@
 name: Release
 
-# v0.78.0 PC cutover: Tauri release pipeline removed. Desktop binaries
-# now come from `flutter_distributor` driven by app/distribute_options.yaml.
-# The legacy Tauri build steps live in scripts/legacy/build-tauri.sh for
-# emergency forensic / rollback use — they are intentionally NOT wired
-# into this workflow.
+# Desktop binaries are built from the Flutter stack via
+# `flutter_distributor`, driven by app/distribute_options.yaml.
 
 on:
   workflow_dispatch:
@@ -42,7 +39,7 @@ jobs:
 
           ## v0.78.0+ Note
 
-          Desktop binaries are now built from the Flutter stack only. The legacy Tauri/Vue stack is no longer published; existing users keep their data (shared SQLCipher DB).
+          Desktop binaries are built from the Flutter stack only. The legacy Tauri/Vue stack was removed in v0.80.0; existing users keep their data (shared SQLCipher DB).
           BODY
 
           # A semver pre-release tag (v0.79.0-rc.1) must not be published as

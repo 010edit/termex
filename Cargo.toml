@@ -1,19 +1,17 @@
 [workspace]
 resolver = "2"
-# v0.78.0 PC cutover: `src-tauri` removed from workspace. The legacy
-# Tauri/Vue desktop crate still lives at the repo path for forensic /
-# rollback purposes (see scripts/legacy/build-tauri.sh) but is no longer
-# compiled by `cargo build --workspace` / `cargo test --workspace`.
-# Physical deletion of the directory is scheduled for v0.80.0.
+# The legacy Tauri/Vue desktop stack was physically removed in v0.80.0.
+# This workspace contains only the shared Rust core, the Flutter bridge,
+# and the remote daemon.
 members = [
     "crates/termex-core",
     "crates/termex-flutter-bridge",
     "crates/termexd",
 ]
-# Cargo's manifest validation still scans the directory for any `[package]`
-# referenced via path = ; explicitly mark src-tauri as excluded so a stray
-# `cargo metadata` doesn't try to pick it up.
-exclude = ["src-tauri", "crates/termex-core-private"]
+# `termex-core-private` is an optional path dependency for commercial
+# builds. Excluding it keeps `cargo metadata` from treating the stub as a
+# workspace member.
+exclude = ["crates/termex-core-private"]
 
 [workspace.dependencies]
 serde        = { version = "1", features = ["derive"] }

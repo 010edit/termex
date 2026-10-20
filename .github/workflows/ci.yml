@@ -1,13 +1,11 @@
 name: CI
 
-# v0.78.0 PC cutover: Tauri/Vue build + test jobs removed. CI now runs:
-#   - flutter-analyze   (replaces the old `pnpm run build` type-check)
-#   - flutter-test      (unchanged)
-#   - rust-test         (cargo test --workspace; src-tauri no longer included)
+# CI covers the Flutter app and the Rust workspace only:
+#   - flutter-analyze
+#   - flutter-test
+#   - rust-test         (cargo test --workspace)
 #   - ios-bootstrap-check
 #   - android-bootstrap-check
-# To manually build a Tauri binary for forensic / rollback purposes, see
-# scripts/legacy/build-tauri.sh — it is intentionally not wired into CI.
 
 on:
   push:
@@ -62,9 +60,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
-        # v0.78.0: workspace cache now covers termex-core +
-        # termex-flutter-bridge + termexd. src-tauri is excluded from
-        # the workspace and built only via scripts/legacy/build-tauri.sh.
+        # Workspace cache covers termex-core + termex-flutter-bridge + termexd.
         with:
           workspaces: . -> target
 

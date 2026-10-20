@@ -1,16 +1,5 @@
-# Dependencies
-node_modules/
-.pnpm-store/
-
-# Build output
-dist/
+# Rust build output
 target/
-src-tauri/target/
-
-# Tauri build artifacts
-src-tauri/gen/
-src-tauri/WixTools/
-src-tauri/icons/icon.ico.bak
 
 # IDE
 .vscode/
@@ -45,8 +34,6 @@ watermarks.local.json
 # Logs
 logs/
 *.log
-npm-debug.log*
-pnpm-debug.log*
 
 # Test & coverage
 coverage/

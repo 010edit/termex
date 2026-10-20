@@ -22,7 +22,7 @@
 
 | scope | 用途 |
 |---|---|
-| `pc` | 桌面客户端（Tauri/Vue 老栈 / Flutter 桌面 / 打包） |
+| `pc` | 桌面客户端（Flutter 桌面 UI / 打包） |
 | `mobile` | iOS / Android Flutter app（含 UI / 平台 API / 移动专属功能） |
 | `web` | 未来浏览器/web 客户端 |
 | `core` | `crates/termex-core` 业务逻辑（SSH / 加密 / 存储 / 任务模型 / daemon 等） |
@@ -47,7 +47,7 @@
 
 **强制流程**：
 1. 写迭代文档时先来这里登记预期的 migration 号
-2. 实现时 `src-tauri/tests/test_storage.rs::test_migration_count_is_16` + `test_security.rs::test_max_migration_version_is_16` 必须同步更新 count
+2. 实现时同步更新 migration 相关测试断言（migration 数量 / 最新版本号）；测试放在 `crates/*/tests/` 或 `crates/termex-core/src/storage/` 的测试模块中
 3. 每个 migration 必须有对应 down 方向说明（即使是 "irreversible，请用历史 dump 恢复"）
 
 ---

@@ -1,5 +1,8 @@
 # Tech Debt — post Flutter Migration (v0.50+)
 
+> **历史文档**：文中部分路径指向已删除的 Tauri/Vue 老栈（`src-tauri/`、`src/`）。
+> 当前栈为 Flutter + Rust workspace；未完成项请以代码与 issue 为准。
+
 > 在 v0.40–v0.49 迁移过程中发现但未在本次迁移窗口修复的技术债务。优先级与 v0.50+ 的迭代规划对齐。
 
 ---

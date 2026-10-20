@@ -1,5 +1,8 @@
 # Termex - 详细设计文档
 
+> **历史文档**：本文档保留 V0.1 MVP 的 Vue/Tauri 设计，部分目录与 IPC 示例已过时。
+> 当前架构见 [architecture.md](architecture.md)；当前编码规范见 [../CLAUDE.md](../CLAUDE.md)。
+
 > 以 SSH 协议为底座，打造 AI 时代永不断线的云端智能工作平台
 > 
 > 版本: V0.1 MVP | 基于原型设计与需求评审

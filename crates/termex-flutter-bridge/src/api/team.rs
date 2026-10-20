@@ -471,8 +471,8 @@ pub fn team_sync_now() -> Result<i32, String> {
 
     // Minimal real sync: attempt a git fetch via termex_core::team::git, then
     // count any newly-written `team_pending_conflicts` rows. A full CRDT merge
-    // lives in the Tauri path (`src-tauri/src/commands/team.rs::team_sync`);
-    // porting every branch is tracked as a follow-up.
+    // existed only in the deleted Tauri stack; porting every branch is
+    // tracked as a follow-up.
     let before: i64 = crate::db_state::with_db(|db| {
         db.with_conn(|conn| {
             conn.query_row(
@@ -516,7 +516,7 @@ pub fn team_sync_now() -> Result<i32, String> {
 // ─── Passphrase ───────────────────────────────────────────────────────────────
 
 /// The fixed keychain entry that stores the current team workspace passphrase.
-/// Convention matches the legacy Tauri product (`src-tauri/src/commands/team.rs`).
+/// Convention matches the legacy Tauri product.
 const TEAM_PASSPHRASE_KEY: &str = "team_passphrase";
 
 /// Verifies that `passphrase` matches the stored team workspace passphrase.

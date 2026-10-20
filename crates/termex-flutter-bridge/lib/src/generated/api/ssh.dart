@@ -17,8 +17,9 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 ///
 /// Scope (v0.50.x): direct TCP connection + password or key auth against
 /// the server's stored credentials. Chain-through-bastion and network
-/// proxies remain routed through the legacy Tauri path; see
-/// `docs/tech-debt.md` T-9 for the follow-up plan.
+/// proxies are not yet wired into this session path; the CRUD surface lives
+/// in `api/chain.rs` / `api/proxy.rs`, and `docs/tech-debt.md` T-9 tracks
+/// the remaining work.
 Future<String> openSshSession(
         {required String serverId, required int cols, required int rows}) =>
     TermexBridge.instance.api
@@ -58,7 +59,7 @@ Future<void> testSshConnection({required SshConnectionTestParams params}) =>
 ///
 /// v0.50.x: re-resolves the server from its last-connected record. True
 /// channel multiplexing over a shared russh handle is tracked in tech
-/// debt T-9 and will land with the proxy-chain migration.
+/// debt T-9.
 Future<String> openSshSessionClone(
         {required String existingSessionId,
         required int cols,

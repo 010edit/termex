@@ -15,12 +15,12 @@ import 'package:termex_shared/terminal/broadcast_registry.dart';
 import 'package:termex_shared/widgets/dialog.dart';
 import 'state/desktop_shell_state.dart';
 
-/// Native macOS menu bar mirroring the Tauri/Vue production menu structure.
+/// Native macOS menu bar mirroring the former Tauri/Vue desktop menu.
 ///
 /// On non-macOS platforms PlatformMenuBar renders nothing — the [child] is
 /// returned unchanged, so this widget is safe to mount on every desktop OS.
 ///
-/// Menu structure mirrors src-tauri/src/lib.rs `build_menu`:
+/// Menu structure:
 ///   App (Termex) — About / Settings⌘, / Services / Hide / Quit
 ///   File         — New Connection ⌘N / Close Tab ⌘W
 ///   Edit         — Undo Redo Cut Copy Paste Select All

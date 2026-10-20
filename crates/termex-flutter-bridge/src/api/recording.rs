@@ -18,9 +18,9 @@ use termex_core::recording::recorder::RecorderRegistry;
 ///
 /// `recording_start` used to only insert a database row, so the list panel
 /// showed entries whose `.cast` files were never written and whose terminal
-/// output was never captured. The Tauri build kept this registry in AppState
-/// and fed it from the SSH read loop (src-tauri/src/ssh/channel.rs); this is
-/// the equivalent, fed from `frb_ssh_emitter`.
+/// output was never captured. The legacy Tauri build kept this registry in
+/// AppState and fed it from the SSH read loop; this is the equivalent, fed
+/// from `frb_ssh_emitter`.
 pub static RECORDER: Lazy<RecorderRegistry> = Lazy::new(RecorderRegistry::new);
 
 // ─── DTOs ────────────────────────────────────────────────────────────────────

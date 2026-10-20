@@ -3,10 +3,10 @@
 <plist version="1.0">
 <dict>
 	<!--
-	  Disable sandbox so the Flutter build reads/writes the same database
-	  path as the Tauri production build (~/Library/Application Support/
-	  termex/termex.db). Sandboxing would force ~/Library/Containers/...,
-	  which is invisible to Tauri and breaks DB sharing.
+	  Disable sandbox so the app reads/writes the same database path used
+	  by legacy installs (~/Library/Application Support/termex/termex.db).
+	  Sandboxing would force ~/Library/Containers/..., breaking DB sharing
+	  with existing users.
 	-->
 	<key>com.apple.security.app-sandbox</key>
 	<false/>

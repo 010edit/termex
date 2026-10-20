@@ -144,8 +144,9 @@ async fn connect_direct(
 ///
 /// Scope (v0.50.x): direct TCP connection + password or key auth against
 /// the server's stored credentials. Chain-through-bastion and network
-/// proxies remain routed through the legacy Tauri path; see
-/// `docs/tech-debt.md` T-9 for the follow-up plan.
+/// proxies are not yet wired into this session path; the CRUD surface lives
+/// in `api/chain.rs` / `api/proxy.rs`, and `docs/tech-debt.md` T-9 tracks
+/// the remaining work.
 pub async fn open_ssh_session(
     server_id: String,
     cols: u32,
@@ -184,8 +185,8 @@ pub async fn open_ssh_session(
 
 /// Starts a recording immediately when the server is flagged for it.
 ///
-/// Per-server rather than a global preference, matching the Tauri build
-/// (src-tauri/src/commands/ssh.rs): `servers.auto_record` arms it and
+/// Per-server rather than a global preference, matching the legacy Tauri
+/// build: `servers.auto_record` arms it and
 /// `servers.max_recording_mb` caps the file. Best-effort — a server that
 /// connects but cannot be recorded is still a usable session, so failures
 /// here never fail the connect.
@@ -424,7 +425,7 @@ pub async fn test_ssh_connection(
 ///
 /// v0.50.x: re-resolves the server from its last-connected record. True
 /// channel multiplexing over a shared russh handle is tracked in tech
-/// debt T-9 and will land with the proxy-chain migration.
+/// debt T-9.
 pub async fn open_ssh_session_clone(
     existing_session_id: String,
     cols: u32,

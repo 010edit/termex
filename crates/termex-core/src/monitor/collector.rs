@@ -1,10 +1,10 @@
 //! Remote metrics collection over a plain SSH exec channel.
 //!
 //! The legacy Tauri build shipped the batch-command builder and the section
-//! splitter in OSS (`src-tauri/src/monitor/collector.rs`) but kept the
-//! *parsers* in the closed-source crate, so an OSS build collected output it
-//! could not read. The Flutter bridge went one step further and returned
-//! hard-coded zeros, which is what the monitor panel has been rendering.
+//! splitter in OSS but kept the *parsers* in the closed-source crate, so an
+//! OSS build collected output it could not read. The Flutter bridge went one
+//! step further and returned hard-coded zeros, which is what the monitor panel
+//! had been rendering.
 //!
 //! Everything here is plain `/proc`, `df`, `ps` and `netstat` parsing — no
 //! agent to install and nothing that warrants being closed-source.

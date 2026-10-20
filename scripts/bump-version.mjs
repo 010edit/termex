@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 
 /**
- * Synchronizes version across all version-carrying files (v0.49+ multi-crate
- * + Flutter layout).
+ * Synchronizes version across all version-carrying files (Flutter + Rust
+ * workspace layout).
  *
  * Usage:
- *   node scripts/bump-version.mjs patch    # 0.48.0 → 0.48.1
- *   node scripts/bump-version.mjs minor    # 0.48.0 → 0.49.0
- *   node scripts/bump-version.mjs major    # 0.48.0 → 1.0.0
- *   node scripts/bump-version.mjs 0.49.0   # explicit version
+ *   node scripts/bump-version.mjs patch    # 0.80.0 → 0.80.1
+ *   node scripts/bump-version.mjs minor    # 0.80.0 → 0.81.0
+ *   node scripts/bump-version.mjs major    # 0.80.0 → 1.0.0
+ *   node scripts/bump-version.mjs 0.81.0   # explicit version
  */
 
 import { readFileSync, writeFileSync, existsSync } from "fs";
@@ -18,17 +18,12 @@ import { fileURLToPath } from "url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, "..");
 
-// v0.78.0 PC cutover: dropped active sync of src-tauri/tauri.conf.json
-// and src-tauri/Cargo.toml. The legacy Tauri crate's version stamp is
-// frozen at v0.77.x and only manually bumped via
-// scripts/legacy/build-tauri.sh when a forensic build is required.
 const JSON_FILES = [
   resolve(root, "package.json"),
 ];
 
 const CARGO_FILES = [
   resolve(root, "crates/termex-core/Cargo.toml"),
-  resolve(root, "crates/termex-tauri/Cargo.toml"),
   resolve(root, "crates/termex-flutter-bridge/Cargo.toml"),
 ];
 

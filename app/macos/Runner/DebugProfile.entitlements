@@ -5,9 +5,9 @@
 	<!--
 	  Termex is an SSH client + AI workspace; sandboxing forces the app
 	  to read/write under ~/Library/Containers/com.termex.termex/Data/...
-	  which makes the Flutter rewrite invisible to the existing Tauri
-	  ~/Library/Application Support/termex/ database. The Tauri production
-	  build also ships unsandboxed for the same reason.
+	  which makes the app invisible to the existing
+	  ~/Library/Application Support/termex/ database. The release build
+	  also ships unsandboxed for the same reason.
 	-->
 	<key>com.apple.security.app-sandbox</key>
 	<false/>

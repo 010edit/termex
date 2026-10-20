@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
 /// Abstracts SFTP transfer-progress event emission, decoupling the SFTP
-/// core from the Tauri and FRB runtimes.
+/// core from the UI runtime.
 ///
-/// Two concrete implementations exist:
-/// - `TauriSftpEmitter` in `src-tauri` — emits via `tauri::AppHandle`
-/// - `FrbSftpEmitter` in `termex-flutter-bridge` — pushes to a per-transfer queue
+/// The concrete implementation is `FrbSftpEmitter` in
+/// `termex-flutter-bridge`, which pushes to a per-transfer queue.
 pub trait SftpEventEmitter: Send + Sync + 'static {
     /// Called periodically during a file transfer with cumulative progress.
     fn emit_progress(&self, transfer_id: &str, remote_path: &str, transferred: u64, total: u64);

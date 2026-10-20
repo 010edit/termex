@@ -1,10 +1,7 @@
 name: Flutter Release
 
-# Manual-only until the Flutter migration is ready to ship:
-#   - app/{linux,macos,windows}/ platform dirs not yet scaffolded
-#   - termex-flutter-bridge has open TODOs (see docs/iterations/v0.52.0-gap-coverage.md)
-# Tauri/Vue (release.yml) is the production stack and fires on v* tags.
-# Re-add a tag trigger here once platform folders + cutover are complete.
+# Manual Flutter release workflow. Tag-driven releases use release.yml;
+# this workflow is kept for ad-hoc builds from a chosen version/channel.
 on:
   workflow_dispatch:
     inputs:
@@ -223,9 +220,9 @@ jobs:
           cat > release-notes.md <<'EOF'
           # Termex __VERSION__
 
-          > ⚠️ **Tauri/Vue desktop stack is retiring.** New installs should use the Flutter desktop packages below (DMG / MSIX / AppImage). The legacy Tauri build is still available from the `stable-legacy` channel until v0.75 (CI cutoff) / v0.80 (source removal). See the [Tauri retirement plan](https://github.com/termex/termex/blob/main/docs/iterations/v0.70.0-pc-tauri-retirement.md) and [switch guide](https://github.com/termex/termex/blob/main/docs/MIGRATION.md#v069-起从-tauri-桌面切换到-flutter-桌面).
+          > ℹ️ **The Tauri/Vue desktop stack was removed in v0.80.0.** These packages are Flutter builds. Users upgrading from a Tauri install keep their data: SQLCipher DB, OS Keychain entries, recordings and config files live at the same paths, so no manual migration is required.
           >
-          > Data and credentials (SQLCipher DB, OS Keychain entries, recordings, config files) are fully shared between the two stacks — switching to Flutter requires **no manual migration**.
+          > See [MIGRATION.md](https://github.com/termex/termex/blob/main/docs/MIGRATION.md) for the historical switch guide.
 
           ## What's in this release
 
